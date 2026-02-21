@@ -5,8 +5,11 @@ services:
       - "5625:3001"
     volumes:
       - ./data:/app/data
-      - ${HOME}:${HOME}:ro
+      - ${RALPH_PATH}:${RALPH_PATH}:ro
+      - ${WORKSPACE}:${WORKSPACE}
     environment:
       - NODE_ENV=production
       - DATA_DIR=/app/data
+    env_file:
+      - .env
     restart: unless-stopped
