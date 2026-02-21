@@ -1,0 +1,16 @@
+## Codebase Patterns
+- No test framework configured — quality checks are typecheck + build (`npm run build` in frontend/)
+- Frontend uses TanStack React Query with 5s refetch intervals for dashboard data
+- Project summary counts come from backend API; frontend just displays them
+- Tailwind CSS with custom `ralph` purple color palette
+
+---
+
+## 2026-02-21 - US-004
+- Updated ProjectCard summary text from "X/Y done" to "X done · Y in progress · Z pending" three-state format
+- Files changed: `frontend/src/pages/Projects.tsx`
+- **Learnings for future iterations:**
+  - The ProjectCard component is in `frontend/src/pages/Projects.tsx` (not a separate component file)
+  - `inProgressStories` field was already added to `ProjectSummary` in US-002/US-003, so the frontend type was ready
+  - Pending count is derived: `totalStories - doneStories - inProgressStories`
+---
