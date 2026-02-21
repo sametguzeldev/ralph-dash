@@ -3,3 +3,8 @@ dist/
 data/
 *.db
 .env
+docker-compose.override.yml
+.claude/
+scripts/
+tasks/
+archive/
