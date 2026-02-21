@@ -147,7 +147,7 @@ projectsRouter.get('/:id/status', (req, res) => {
   // Derive task statuses
   const tasks = prd?.userStories.map(story => ({
     ...story,
-    status: deriveTaskStatus(story, progress?.entries || []),
+    status: deriveTaskStatus(story),
   })) || [];
 
   res.json({
@@ -198,7 +198,7 @@ projectsRouter.get('/:id/archives/:folder', (req, res) => {
 
   const tasks = prd?.userStories.map(story => ({
     ...story,
-    status: deriveTaskStatus(story, progress?.entries || []),
+    status: deriveTaskStatus(story),
   })) || [];
 
   res.json({
