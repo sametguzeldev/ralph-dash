@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { stopRun, deleteProject } from '../lib/api';
+import { deleteProject } from '../lib/api';
 
 interface DeleteConfirmModalProps {
   projectName: string;
@@ -24,7 +24,7 @@ export function DeleteConfirmModal({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isDeleting) onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -34,9 +34,6 @@ export function DeleteConfirmModal({
     setError('');
     setIsDeleting(true);
     try {
-      if (isRunning) {
-        await stopRun(projectId);
-      }
       await deleteProject(projectId);
       onDeleted();
     } catch (err) {
@@ -46,7 +43,7 @@ export function DeleteConfirmModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={e => { e.stopPropagation(); onClose(); }}>
       <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <h3 className="text-lg font-bold mb-4">Delete Project</h3>
 
