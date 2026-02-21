@@ -6,6 +6,7 @@ import { KanbanBoard } from '../components/KanbanBoard';
 import { ProgressTimeline } from '../components/ProgressTimeline';
 import { LogViewer } from '../components/LogViewer';
 import { RunHistory } from '../components/RunHistory';
+import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 
 export function Dashboard() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,7 @@ export function Dashboard() {
   });
 
   const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const syncMutation = useMutation({
     mutationFn: () => syncProjectFiles(projectId),
@@ -91,6 +93,12 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2 border border-red-600 text-red-400 hover:bg-red-600/10 rounded-lg text-sm font-medium transition-colors"
+          >
+            Delete Project
+          </button>
           <div className="relative">
             <button
               onClick={() => syncMutation.mutate()}
@@ -151,6 +159,16 @@ export function Dashboard() {
 
       {/* Run History */}
       <RunHistory projectId={projectId} />
+
+      {showDeleteModal && (
+        <DeleteConfirmModal
+          projectName={data.project.name}
+          projectId={projectId}
+          isRunning={isRunning}
+          onClose={() => setShowDeleteModal(false)}
+          onDeleted={() => navigate('/projects')}
+        />
+      )}
     </div>
   );
 }
