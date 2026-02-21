@@ -1,6 +1,6 @@
 # RalphDash
 
-A self-hosted web dashboard for monitoring and controlling [Ralph](https://github.com/anthropics/ralph) AI loop iterations across multiple projects. Runs locally via Docker and reads project data directly from the filesystem.
+A self-hosted web dashboard for monitoring and controlling [Ralph](https://github.com/sametguzeldev/ralph) AI loop iterations across multiple projects. Runs locally via Docker and reads project data directly from the filesystem.
 
 ![Dark dashboard UI with Kanban board, live log viewer, and progress timeline](https://placehold.co/900x500/1a1a2e/a78bfa?text=RalphDash)
 
@@ -21,7 +21,7 @@ A self-hosted web dashboard for monitoring and controlling [Ralph](https://githu
 ## Requirements
 
 - [Docker](https://www.docker.com/) and Docker Compose
-- A [Ralph](https://github.com/anthropics/ralph) installation on the host machine
+- A [Ralph](https://github.com/sametguzeldev/ralph) installation on the host machine
 - Projects that use Ralph (with `scripts/ralph/prd.json` present)
 
 ---
