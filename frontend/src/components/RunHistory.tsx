@@ -38,7 +38,7 @@ function ArchiveRow({ projectId, archive }: { projectId: number; archive: Archiv
         <div className="border-t border-gray-800 p-4 space-y-4 bg-gray-900/50">
           {isLoading ? (
             <div className="animate-pulse h-32 bg-gray-800 rounded-lg" />
-          ) : isError ? (
+          ) : isError && !data ? (
             <p className="text-sm text-red-400">Failed to load archive data.</p>
           ) : data?.prd ? (
             <>
