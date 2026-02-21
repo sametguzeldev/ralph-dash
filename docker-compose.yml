@@ -1,0 +1,12 @@
+services:
+  ralph-dash:
+    build: .
+    ports:
+      - "5625:3001"
+    volumes:
+      - ./data:/app/data
+      - ${HOME}:${HOME}:ro
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+    restart: unless-stopped
