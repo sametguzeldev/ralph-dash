@@ -1,0 +1,10 @@
+# Copy this file to docker-compose.override.yml and customize your workspace mounts.
+# docker-compose.override.yml is gitignored — it's your local config.
+#
+# Mount each workspace directory you want to use with RalphDash.
+# All projects you add must be under one of these mounted paths.
+services:
+  ralph-dash:
+    volumes:
+      - /Users/you/PersonalProjects:/Users/you/PersonalProjects
+      - /Users/you/ZeptoProjects:/Users/you/ZeptoProjects
