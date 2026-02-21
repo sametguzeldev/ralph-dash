@@ -5,6 +5,5 @@ data/
 .env
 docker-compose.override.yml
 .claude/
-scripts/
+scripts/ralph/
 tasks/
-archive/
