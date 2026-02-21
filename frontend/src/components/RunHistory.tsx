@@ -7,7 +7,7 @@ import { ProgressTimeline } from './ProgressTimeline';
 function ArchiveRow({ projectId, archive }: { projectId: number; archive: ArchiveSummary }) {
   const [expanded, setExpanded] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['archive-detail', projectId, archive.folder],
     queryFn: () => getArchiveDetail(projectId, archive.folder),
     enabled: expanded,
@@ -38,6 +38,8 @@ function ArchiveRow({ projectId, archive }: { projectId: number; archive: Archiv
         <div className="border-t border-gray-800 p-4 space-y-4 bg-gray-900/50">
           {isLoading ? (
             <div className="animate-pulse h-32 bg-gray-800 rounded-lg" />
+          ) : isError ? (
+            <p className="text-sm text-red-400">Failed to load archive data.</p>
           ) : data?.prd ? (
             <>
               {data.prd.description && (
@@ -63,13 +65,14 @@ function ArchiveRow({ projectId, archive }: { projectId: number; archive: Archiv
 export function RunHistory({ projectId }: { projectId: number }) {
   const [collapsed, setCollapsed] = useState(true);
 
-  const { data: archives } = useQuery({
+  const { data: archives, isError } = useQuery({
     queryKey: ['archives', projectId],
     queryFn: () => getArchives(projectId),
   });
 
   const count = archives?.length ?? 0;
 
+  if (isError) return <p className="text-sm text-red-400 px-1">Failed to load run history.</p>;
   if (count === 0) return null;
 
   return (

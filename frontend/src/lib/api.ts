@@ -129,5 +129,5 @@ export function getArchives(id: number) {
 }
 
 export function getArchiveDetail(id: number, folder: string) {
-  return request<ProjectStatus>(`/projects/${id}/archives/${folder}`);
+  return request<ProjectStatus>(`/projects/${id}/archives/${encodeURIComponent(folder)}`);
 }

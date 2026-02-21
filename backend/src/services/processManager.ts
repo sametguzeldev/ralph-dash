@@ -4,6 +4,7 @@ import path from 'path';
 interface RunInfo {
   process: ChildProcess;
   output: string[];
+  totalLines: number;
   startedAt: Date;
 }
 
@@ -26,6 +27,7 @@ export function startRun(projectId: number, projectPath: string): boolean {
   const info: RunInfo = {
     process: child,
     output: [],
+    totalLines: 0,
     startedAt: new Date(),
   };
 
@@ -34,6 +36,7 @@ export function startRun(projectId: number, projectPath: string): boolean {
     for (const line of lines) {
       if (line) {
         info.output.push(line);
+        info.totalLines++;
         if (info.output.length > MAX_OUTPUT_LINES) {
           info.output.shift();
         }
@@ -90,8 +93,12 @@ export function getRunStatus(projectId: number): { running: boolean; pid?: numbe
   };
 }
 
-export function getRunOutput(projectId: number, since = 0): string[] {
+export function getRunOutput(projectId: number, since = 0): { lines: string[]; total: number } {
   const info = runs.get(projectId);
-  if (!info) return [];
-  return info.output.slice(since);
+  if (!info) return { lines: [], total: since };
+  // Map the absolute `since` offset to a position within the rotating buffer.
+  // bufferStart is the absolute index of the first item currently in the buffer.
+  const bufferStart = info.totalLines - info.output.length;
+  const bufferOffset = Math.max(0, since - bufferStart);
+  return { lines: info.output.slice(bufferOffset), total: info.totalLines };
 }
