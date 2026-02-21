@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getProjects, createProject, deleteProject, type ProjectSummary } from '../lib/api';
+import { getProjects, createProject, type ProjectSummary } from '../lib/api';
+import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 
 function AddProjectModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -63,17 +64,11 @@ function AddProjectModal({ onClose }: { onClose: () => void }) {
 function ProjectCard({ project }: { project: ProjectSummary }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteProject(project.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
-  });
-
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Remove "${project.name}" from dashboard?`)) {
-      deleteMutation.mutate();
-    }
+    setShowDeleteModal(true);
   };
 
   return (
@@ -90,14 +85,29 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" title="Running" />
           )}
           <button
-            onClick={handleDelete}
-            className="text-gray-600 hover:text-red-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity"
-            title="Remove"
+            onClick={handleDeleteClick}
+            className="text-red-500 hover:text-red-400 transition-colors"
+            title="Delete project"
           >
-            ×
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+            </svg>
           </button>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <DeleteConfirmModal
+          projectName={project.name}
+          projectId={project.id}
+          isRunning={project.running}
+          onClose={() => setShowDeleteModal(false)}
+          onDeleted={() => {
+            setShowDeleteModal(false);
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+          }}
+        />
+      )}
 
       <p className="text-xs text-gray-500 font-mono truncate mb-3" title={project.path}>
         {project.path}
