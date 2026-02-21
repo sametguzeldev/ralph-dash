@@ -5,7 +5,7 @@ import path from 'path';
 import { db } from '../db/connection.js';
 import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
-import { getRunStatus } from '../services/processManager.js';
+import { getRunStatus, stopRun } from '../services/processManager.js';
 
 export const projectsRouter = Router();
 
@@ -79,11 +79,21 @@ projectsRouter.post('/', (req, res) => {
 
 projectsRouter.delete('/:id', (req, res) => {
   const { id } = req.params;
-  const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  const projectId = Number(id);
 
-  if (result.changes === 0) {
+  // Check project exists before attempting stop/delete
+  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+  if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
+
+  // Stop any active run before deleting
+  const runStatus = getRunStatus(projectId);
+  if (runStatus.running) {
+    stopRun(projectId);
+  }
+
+  db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
 
   res.json({ success: true });
 });
