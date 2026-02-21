@@ -1,0 +1,124 @@
+import { Router } from 'express';
+import fs from 'fs';
+import { db } from '../db/connection.js';
+import { copyRalphFiles } from '../services/fileCopier.js';
+import { parsePrd, parseProgress, readBranch, deriveTaskStatus } from '../services/fileParser.js';
+import { getRunStatus } from '../services/processManager.js';
+
+export const projectsRouter = Router();
+
+interface ProjectRow {
+  id: number;
+  name: string;
+  path: string;
+  created_at: string;
+}
+
+projectsRouter.get('/', (_req, res) => {
+  const projects = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as ProjectRow[];
+
+  const enriched = projects.map(p => {
+    const prd = parsePrd(p.path);
+    const branch = readBranch(p.path);
+    const runStatus = getRunStatus(p.id);
+    const totalStories = prd?.userStories.length || 0;
+    const doneStories = prd?.userStories.filter(s => s.passes).length || 0;
+
+    return {
+      ...p,
+      branch,
+      totalStories,
+      doneStories,
+      running: runStatus.running,
+    };
+  });
+
+  res.json(enriched);
+});
+
+projectsRouter.post('/', (req, res) => {
+  const { name, path: projectPath } = req.body;
+
+  if (!name || !projectPath) {
+    return res.status(400).json({ error: 'name and path are required' });
+  }
+
+  const expandedPath = projectPath.replace(/^~/, process.env.HOME || '');
+
+  if (!fs.existsSync(expandedPath)) {
+    return res.status(400).json({ error: 'Project path does not exist' });
+  }
+
+  // Check if ralph path is configured
+  const settingsRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('ralphPath') as { value: string } | undefined;
+  if (!settingsRow) {
+    return res.status(400).json({ error: 'Ralph path not configured. Go to Settings first.' });
+  }
+
+  try {
+    // Copy Ralph files to the project
+    copyRalphFiles(settingsRow.value, expandedPath);
+
+    const result = db.prepare('INSERT INTO projects (name, path) VALUES (?, ?)').run(name, expandedPath);
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as ProjectRow;
+
+    res.status(201).json(project);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    if (message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Project with this path already exists' });
+    }
+    return res.status(500).json({ error: message });
+  }
+});
+
+projectsRouter.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  res.json({ success: true });
+});
+
+projectsRouter.get('/:id', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  res.json(project);
+});
+
+projectsRouter.get('/:id/status', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const prd = parsePrd(project.path);
+  const progress = parseProgress(project.path);
+  const branch = readBranch(project.path);
+  const runStatus = getRunStatus(project.id);
+
+  // Derive task statuses
+  const tasks = prd?.userStories.map(story => ({
+    ...story,
+    status: deriveTaskStatus(story, progress?.entries || []),
+  })) || [];
+
+  res.json({
+    project,
+    prd: prd ? { ...prd, userStories: tasks } : null,
+    progress,
+    branch,
+    runStatus: runStatus.running ? 'running' : 'stopped',
+    lastRefreshed: new Date().toISOString(),
+  });
+});

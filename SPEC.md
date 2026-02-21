@@ -3,7 +3,7 @@
 ## Project Overview
 
 **Project Name:** RalphDash  
-**Location:** `~/.PersonalProjects/ralph-dash`  
+**Location:** `~/PersonalProjects/ralph-dash`  
 **Type:** Local web dashboard with Docker support  
 **Purpose:** Monitor and control Ralph loop iterations across multiple projects
 
