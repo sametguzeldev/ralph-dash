@@ -23,6 +23,7 @@ COPY --from=frontend-build /app/frontend/dist ./public
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data
 
+RUN chown -R node:node /app
 EXPOSE 3001
 USER node
 CMD ["node", "dist/index.js"]
