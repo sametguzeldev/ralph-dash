@@ -51,6 +51,10 @@ export function deleteProject(id: number) {
   return request<{ success: boolean }>(`/projects/${id}`, { method: 'DELETE' });
 }
 
+export function syncProjectFiles(id: number) {
+  return request<{ success: boolean }>(`/projects/${id}/sync`, { method: 'POST' });
+}
+
 // Project Status
 export interface UserStoryWithStatus {
   id: string;
@@ -108,4 +112,22 @@ export function stopRun(id: number) {
 
 export function getRunOutput(id: number, since = 0) {
   return request<{ lines: string[]; total: number }>(`/projects/${id}/run/output?since=${since}`);
+}
+
+// Archives
+export interface ArchiveSummary {
+  folder: string;
+  date: string;
+  featureName: string;
+  branchName: string;
+  totalStories: number;
+  doneStories: number;
+}
+
+export function getArchives(id: number) {
+  return request<ArchiveSummary[]>(`/projects/${id}/archives`);
+}
+
+export function getArchiveDetail(id: number, folder: string) {
+  return request<ProjectStatus>(`/projects/${id}/archives/${folder}`);
 }

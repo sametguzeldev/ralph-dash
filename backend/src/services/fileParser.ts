@@ -32,8 +32,21 @@ export interface ProgressData {
   entries: ProgressEntry[];
 }
 
-export function parsePrd(projectPath: string): PrdData | null {
-  const prdPath = path.join(projectPath, 'scripts', 'ralph', 'prd.json');
+export interface ArchiveSummary {
+  folder: string;
+  date: string;
+  featureName: string;
+  branchName: string;
+  totalStories: number;
+  doneStories: number;
+}
+
+// ---------------------------------------------------------------------------
+// Core parsers — accept a directory containing prd.json / progress.txt
+// ---------------------------------------------------------------------------
+
+export function parsePrdFromDir(dir: string): PrdData | null {
+  const prdPath = path.join(dir, 'prd.json');
   if (!fs.existsSync(prdPath)) return null;
 
   try {
@@ -44,8 +57,8 @@ export function parsePrd(projectPath: string): PrdData | null {
   }
 }
 
-export function parseProgress(projectPath: string): ProgressData | null {
-  const progressPath = path.join(projectPath, 'scripts', 'ralph', 'progress.txt');
+export function parseProgressFromDir(dir: string): ProgressData | null {
+  const progressPath = path.join(dir, 'progress.txt');
   if (!fs.existsSync(progressPath)) return null;
 
   try {
@@ -101,8 +114,24 @@ export function parseProgress(projectPath: string): ProgressData | null {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Convenience wrappers — accept a project root path (backward-compatible)
+// ---------------------------------------------------------------------------
+
+function ralphDir(projectPath: string): string {
+  return path.join(projectPath, 'scripts', 'ralph');
+}
+
+export function parsePrd(projectPath: string): PrdData | null {
+  return parsePrdFromDir(ralphDir(projectPath));
+}
+
+export function parseProgress(projectPath: string): ProgressData | null {
+  return parseProgressFromDir(ralphDir(projectPath));
+}
+
 export function readBranch(projectPath: string): string | null {
-  const branchPath = path.join(projectPath, 'scripts', 'ralph', '.last-branch');
+  const branchPath = path.join(ralphDir(projectPath), '.last-branch');
   if (!fs.existsSync(branchPath)) return null;
 
   try {
@@ -111,6 +140,10 @@ export function readBranch(projectPath: string): string | null {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Task status derivation
+// ---------------------------------------------------------------------------
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done';
 
@@ -125,4 +158,53 @@ export function deriveTaskStatus(
   if (hasProgressEntry) return 'in_progress';
 
   return 'pending';
+}
+
+// ---------------------------------------------------------------------------
+// Archive helpers
+// ---------------------------------------------------------------------------
+
+const ARCHIVE_FOLDER_RE = /^(\d{4}-\d{2}-\d{2})-(.+)$/;
+
+export function listArchives(projectPath: string): ArchiveSummary[] {
+  const archiveDir = path.join(ralphDir(projectPath), 'archive');
+  if (!fs.existsSync(archiveDir)) return [];
+
+  try {
+    const entries = fs.readdirSync(archiveDir, { withFileTypes: true });
+    const archives: ArchiveSummary[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const match = ARCHIVE_FOLDER_RE.exec(entry.name);
+      if (!match) continue;
+
+      const folder = entry.name;
+      const date = match[1]!;
+      const featureName = match[2]!;
+      const dir = path.join(archiveDir, folder);
+
+      // Lightweight parse — only need prd for counts + branchName
+      const prd = parsePrdFromDir(dir);
+
+      archives.push({
+        folder,
+        date,
+        featureName,
+        branchName: prd?.branchName ?? `ralph/${featureName}`,
+        totalStories: prd?.userStories.length ?? 0,
+        doneStories: prd?.userStories.filter(s => s.passes).length ?? 0,
+      });
+    }
+
+    // Newest first
+    archives.sort((a, b) => b.date.localeCompare(a.date));
+    return archives;
+  } catch {
+    return [];
+  }
+}
+
+export function getArchiveDir(projectPath: string, folder: string): string {
+  return path.join(ralphDir(projectPath), 'archive', folder);
 }
