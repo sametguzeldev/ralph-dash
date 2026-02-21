@@ -33,6 +33,7 @@ export interface ProjectSummary {
   branch: string | null;
   totalStories: number;
   doneStories: number;
+  inProgressStories: number;
   running: boolean;
 }
 
@@ -63,6 +64,7 @@ export interface UserStoryWithStatus {
   acceptanceCriteria: string[];
   priority: number;
   passes: boolean;
+  inProgress?: boolean;
   notes: string;
   status: 'pending' | 'in_progress' | 'done';
 }
