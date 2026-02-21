@@ -8,6 +8,7 @@ export interface UserStory {
   acceptanceCriteria: string[];
   priority: number;
   passes: boolean;
+  inProgress?: boolean;
   notes: string;
 }
 
@@ -147,16 +148,9 @@ export function readBranch(projectPath: string): string | null {
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done';
 
-export function deriveTaskStatus(
-  story: UserStory,
-  progressEntries: ProgressEntry[],
-): TaskStatus {
+export function deriveTaskStatus(story: UserStory): TaskStatus {
   if (story.passes) return 'done';
-
-  // Check if there's a progress entry for this story (meaning it was worked on)
-  const hasProgressEntry = progressEntries.some(e => e.storyId === story.id);
-  if (hasProgressEntry) return 'in_progress';
-
+  if (story.inProgress) return 'in_progress';
   return 'pending';
 }
 
