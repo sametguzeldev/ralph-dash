@@ -121,7 +121,7 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
         )}
         {project.totalStories > 0 && (
           <span className="text-xs text-gray-500">
-            {project.doneStories}/{project.totalStories} done
+            {project.doneStories} done · {project.inProgressStories} in progress · {project.totalStories - project.doneStories - project.inProgressStories} pending
           </span>
         )}
       </div>
