@@ -48,6 +48,5 @@ runnerRouter.get('/:id/run/output', (req, res) => {
   const { id } = req.params;
   const since = parseInt(req.query.since as string, 10) || 0;
   const projectId = parseInt(id, 10);
-  const lines = getRunOutput(projectId, since);
-  res.json({ lines, total: since + lines.length });
+  res.json(getRunOutput(projectId, since));
 });

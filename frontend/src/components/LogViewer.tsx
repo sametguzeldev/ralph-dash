@@ -7,6 +7,22 @@ export function LogViewer({ projectId, running }: { projectId: number; running: 
   const [lines, setLines] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const prevRunningRef = useRef(running);
+
+  // Reset log when navigating to a different project
+  useEffect(() => {
+    setLines([]);
+    setSince(0);
+  }, [projectId]);
+
+  // Reset log when a new run starts (running transitions false → true)
+  useEffect(() => {
+    if (running && !prevRunningRef.current) {
+      setLines([]);
+      setSince(0);
+    }
+    prevRunningRef.current = running;
+  }, [running]);
 
   useQuery({
     queryKey: ['run-output', projectId, since],

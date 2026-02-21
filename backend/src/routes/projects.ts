@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { db } from '../db/connection.js';
 import { copyRalphFiles } from '../services/fileCopier.js';
@@ -44,7 +45,7 @@ projectsRouter.post('/', (req, res) => {
     return res.status(400).json({ error: 'name and path are required' });
   }
 
-  const expandedPath = projectPath.replace(/^~/, process.env.HOME || '');
+  const expandedPath = projectPath.replace(/^~/, os.homedir());
 
   if (!fs.existsSync(expandedPath)) {
     return res.status(400).json({ error: 'Project path does not exist' });
@@ -57,18 +58,21 @@ projectsRouter.post('/', (req, res) => {
   }
 
   try {
-    // Copy Ralph files to the project
-    copyRalphFiles(settingsRow.value, expandedPath);
-
     const result = db.prepare('INSERT INTO projects (name, path) VALUES (?, ?)').run(name, expandedPath);
+    try {
+      copyRalphFiles(settingsRow.value, expandedPath);
+    } catch (copyErr: unknown) {
+      db.prepare('DELETE FROM projects WHERE id = ?').run(result.lastInsertRowid);
+      const message = copyErr instanceof Error ? copyErr.message : 'Unknown error';
+      return res.status(500).json({ error: message });
+    }
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as ProjectRow;
-
     res.status(201).json(project);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    if (message.includes('UNIQUE')) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'Project with this path already exists' });
     }
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return res.status(500).json({ error: message });
   }
 });
