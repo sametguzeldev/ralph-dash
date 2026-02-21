@@ -45,11 +45,17 @@ export function startRun(projectId: number, projectPath: string): boolean {
   child.stderr?.on('data', appendOutput);
 
   child.on('close', () => {
-    runs.delete(projectId);
+    const current = runs.get(projectId);
+    if (current && current.process === child) {
+      runs.delete(projectId);
+    }
   });
 
   child.on('error', () => {
-    runs.delete(projectId);
+    const current = runs.get(projectId);
+    if (current && current.process === child) {
+      runs.delete(projectId);
+    }
   });
 
   runs.set(projectId, info);
