@@ -72,7 +72,7 @@ export function DeleteConfirmModal({
         {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
 
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200">
+          <button onClick={onClose} disabled={isDeleting} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 disabled:opacity-50">
             Cancel
           </button>
           <button
