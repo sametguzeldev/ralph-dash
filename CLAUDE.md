@@ -47,7 +47,7 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 
 ### Data Flow
 - Projects live on the host filesystem. The backend reads `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`, and `.last-branch` from each project's directory.
-- Task status is derived: `passes: true` → done, has progress entry → in_progress, else → pending.
+- Task status is derived: `passes: true` → done, `inProgress: true` (and not passes) → in_progress, else → pending.
 - The runner spawns `ralph-cc.sh` as a detached bash process, buffers output (max 500 lines), and serves it via polling.
 
 ### Docker Volumes
