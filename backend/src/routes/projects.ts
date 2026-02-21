@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { db } from '../db/connection.js';
 import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
@@ -167,6 +168,13 @@ projectsRouter.get('/:id/archives/:folder', (req, res) => {
   }
 
   const dir = getArchiveDir(project.path, folder);
+
+  const resolvedDir = path.resolve(dir);
+  const resolvedProjectPath = path.resolve(project.path);
+  if (!resolvedDir.startsWith(resolvedProjectPath + path.sep)) {
+    return res.status(400).json({ error: 'Invalid archive folder' });
+  }
+
   const prd = parsePrdFromDir(dir);
   const progress = parseProgressFromDir(dir);
 
