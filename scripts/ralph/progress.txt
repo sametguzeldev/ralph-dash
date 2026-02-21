@@ -1,0 +1,17 @@
+# Ralph Progress Log
+Started: 21 Şub 2026 Cmt +04 22:01:56
+---
+
+## 2026-02-21 22:04 - Parallel wave: US-001,US-002
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-02-21 - US-003
+- Added `inProgressStories` count to GET /api/projects endpoint (counts stories where inProgress is true and passes is not true)
+- Verified deriveTaskStatus call sites in /:id/status and /:id/archives/:folder already use single-argument signature
+- Verified progress data is still parsed and returned in API responses
+- Files changed: `backend/src/routes/projects.ts`
+- **Learnings for future iterations:**
+  - US-001 and US-002 already updated deriveTaskStatus to single-argument form and updated frontend types — US-003 only needed the inProgressStories count added to the projects list endpoint
+  - The projects list endpoint enriches DB rows with filesystem-derived data (prd, branch, run status) in a `.map()` call
+---
