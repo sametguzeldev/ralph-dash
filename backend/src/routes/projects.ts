@@ -25,12 +25,14 @@ projectsRouter.get('/', (_req, res) => {
     const runStatus = getRunStatus(p.id);
     const totalStories = prd?.userStories.length || 0;
     const doneStories = prd?.userStories.filter(s => s.passes).length || 0;
+    const inProgressStories = prd?.userStories.filter(s => s.inProgress && !s.passes).length || 0;
 
     return {
       ...p,
       branch,
       totalStories,
       doneStories,
+      inProgressStories,
       running: runStatus.running,
     };
   });

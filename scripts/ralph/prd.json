@@ -1,0 +1,73 @@
+{
+  "project": "RalphDash",
+  "branchName": "ralph/in-progress-status",
+  "description": "Use the new inProgress field on prd.json stories to derive in-progress status, replacing progress.txt-based detection, and update the Projects list summary to show three-state counts",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add inProgress field to UserStory type and update deriveTaskStatus logic",
+      "description": "As a developer, I need the UserStory interface to include the optional inProgress field and the deriveTaskStatus function to use it instead of progress.txt entries.",
+      "acceptanceCriteria": [
+        "UserStory interface in backend/src/services/fileParser.ts has inProgress?: boolean",
+        "deriveTaskStatus() returns 'done' when passes === true (regardless of inProgress value)",
+        "deriveTaskStatus() returns 'in_progress' when inProgress === true and passes is not true",
+        "deriveTaskStatus() returns 'pending' when both passes and inProgress are falsy",
+        "deriveTaskStatus() no longer accepts a progressEntries parameter — it only takes a single story argument",
+        "Stories without the inProgress field default to pending (not in-progress)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Update frontend types for inProgress support",
+      "description": "As a developer, I need the frontend TypeScript types to include the new inProgress field on stories and inProgressStories count on project summaries.",
+      "acceptanceCriteria": [
+        "ProjectSummary interface in frontend/src/lib/api.ts has inProgressStories: number",
+        "UserStoryWithStatus interface in frontend/src/lib/api.ts has inProgress?: boolean",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Update deriveTaskStatus call sites and add inProgressStories count to projects list endpoint",
+      "description": "As a developer, I need all deriveTaskStatus call sites updated to the new single-argument signature and the projects list endpoint to return an inProgressStories count.",
+      "acceptanceCriteria": [
+        "GET /api/projects/:id/status route in backend/src/routes/projects.ts calls deriveTaskStatus(story) without progress entries argument",
+        "GET /api/projects/:id/archives/:folder route in backend/src/routes/projects.ts calls deriveTaskStatus(story) without progress entries argument",
+        "GET /api/projects response includes inProgressStories number for each project, counting stories where inProgress is true and passes is not true",
+        "Existing totalStories and doneStories fields remain unchanged",
+        "Progress data is still parsed and returned in API responses (used by ProgressTimeline component)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Update Projects list page summary text to three-state format",
+      "description": "As a user, I want the project cards on the Projects list page to show done, in-progress, and pending counts so I can see the full status at a glance.",
+      "acceptanceCriteria": [
+        "The 'X/Y done' text in ProjectCard in frontend/src/pages/Projects.tsx is replaced with 'X done · Y in progress · Z pending' format",
+        "Counts are correct: done = doneStories, in-progress = inProgressStories, pending = totalStories - doneStories - inProgressStories",
+        "When totalStories is 0, no summary text is shown (existing behavior preserved)",
+        "The existing progress bar remains unchanged (still shows completion percentage based on done/total)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    }
+  ]
+}
