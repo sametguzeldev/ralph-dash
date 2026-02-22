@@ -330,7 +330,16 @@ function PrdStep({
   const queryClient = useQueryClient();
   const questionsFiles = workflow?.questionsFiles || [];
   const prdFiles = workflow?.prdFiles || [];
-  const selectedFile = questionsFiles[questionsFiles.length - 1] || '';
+  const [selectedFile, setSelectedFile] = useState('');
+
+  // Auto-select when there's only one file, or keep selection in sync
+  useEffect(() => {
+    if (questionsFiles.length === 1) {
+      setSelectedFile(questionsFiles[0] ?? '');
+    } else if (questionsFiles.length > 0 && !questionsFiles.includes(selectedFile)) {
+      setSelectedFile(questionsFiles[questionsFiles.length - 1] ?? '');
+    }
+  }, [questionsFiles]);
 
   const startMutation = useMutation({
     mutationFn: () => startSkillRun(projectId, { skill: 'prd', questionsFile: selectedFile }),
@@ -358,10 +367,25 @@ function PrdStep({
         </p>
       </div>
 
-      {questionsFiles.length > 0 && (
+      {questionsFiles.length === 1 && (
         <p className="text-xs text-gray-400">
           Using: <span className="font-mono text-ralph-300">{selectedFile}</span>
         </p>
+      )}
+      {questionsFiles.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 shrink-0">Using:</span>
+          <select
+            value={selectedFile}
+            onChange={(e) => setSelectedFile(e.target.value)}
+            disabled={isThisSkillRunning}
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs font-mono text-ralph-300 focus:outline-none focus:border-ralph-500 disabled:opacity-50"
+          >
+            {questionsFiles.map((f) => (
+              <option key={f} value={f}>{f.split('/').pop()}</option>
+            ))}
+          </select>
+        </div>
       )}
 
       <div className="flex gap-2">
@@ -446,9 +470,18 @@ function PrdJsonStep({
 }) {
   const queryClient = useQueryClient();
   const prdFiles = workflow?.prdFiles || [];
-  const selectedFile = prdFiles[prdFiles.length - 1] || '';
+  const [selectedFile, setSelectedFile] = useState('');
   const hasPrdJson = workflow?.hasPrdJson ?? false;
   const prdJsonValid = workflow?.prdJsonValid ?? false;
+
+  // Auto-select when there's only one file, or keep selection in sync
+  useEffect(() => {
+    if (prdFiles.length === 1) {
+      setSelectedFile(prdFiles[0] ?? '');
+    } else if (prdFiles.length > 0 && !prdFiles.includes(selectedFile)) {
+      setSelectedFile(prdFiles[prdFiles.length - 1] ?? '');
+    }
+  }, [prdFiles]);
 
   const startMutation = useMutation({
     mutationFn: () => startSkillRun(projectId, { skill: 'ralph', prdFile: selectedFile }),
@@ -471,10 +504,25 @@ function PrdJsonStep({
         </p>
       </div>
 
-      {prdFiles.length > 0 && (
+      {prdFiles.length === 1 && (
         <p className="text-xs text-gray-400">
           Using: <span className="font-mono text-ralph-300">{selectedFile}</span>
         </p>
+      )}
+      {prdFiles.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 shrink-0">Using:</span>
+          <select
+            value={selectedFile}
+            onChange={(e) => setSelectedFile(e.target.value)}
+            disabled={isThisSkillRunning}
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs font-mono text-ralph-300 focus:outline-none focus:border-ralph-500 disabled:opacity-50"
+          >
+            {prdFiles.map((f) => (
+              <option key={f} value={f}>{f.split('/').pop()}</option>
+            ))}
+          </select>
+        </div>
       )}
 
       <div className="flex gap-2">
