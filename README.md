@@ -8,12 +8,17 @@ A self-hosted web dashboard for monitoring and controlling [Ralph](https://githu
 
 ## Features
 
+- **Workflow wizard** — guided 4-step process: generate clarifying questions → write a PRD → convert to `prd.json` → start a Ralph run, all powered by Claude CLI skills
+- **Real-time skill output** — streams Claude CLI progress with emoji-annotated tool usage (reads, writes, edits, bash commands) as each skill runs
 - **Kanban board** — visualises user stories across Pending / In Progress / Done columns, derived from each project's `prd.json`
 - **Live run control** — start and stop `ralph-cc.sh` runs from the dashboard; tail output in real time
+- **In-app file editor** — view and edit workflow files (questions, PRDs, prd.json) without leaving the dashboard
+- **Follow-up questions** — iteratively deepen requirements by generating follow-up questions from answered responses
 - **Progress timeline** — parsed from `progress.txt`, shows iteration history with learnings
 - **Run history / archives** — browse completed runs stored under `scripts/ralph/archive/`
 - **Multi-workspace support** — mount as many project directories as you need via `docker-compose.override.yml`
 - **File sync** — copies Ralph skills and scripts into a project on add or manual sync
+- **Docker Claude authentication** — configure an API key or OAuth token in Settings so the containerized Claude CLI can run skills
 - **Delete with confirmation** — type-to-confirm modal; stops active runs automatically before removal
 
 ---
@@ -22,7 +27,7 @@ A self-hosted web dashboard for monitoring and controlling [Ralph](https://githu
 
 - [Docker](https://www.docker.com/) and Docker Compose
 - A [Ralph](https://github.com/sametguzeldev/ralph) installation on the host machine
-- Projects that use Ralph (with `scripts/ralph/prd.json` present)
+- A Claude authentication token (API key or OAuth token) — configured in Settings after first launch
 
 ---
 
@@ -78,10 +83,13 @@ Open [http://localhost:5625](http://localhost:5625) in your browser.
 ## First-time Setup
 
 1. Go to **Settings** and confirm your Ralph installation path is correct. Hit **Save** — this validates the path and makes file sync available.
-2. Go to **Projects** and click **Add Project**.
-3. Enter a display name and the absolute path to your project root (tilde `~` is supported).
-4. RalphDash will copy the Ralph scripts into your project automatically.
-5. Click the project card to open its dashboard and start a run.
+2. **(Docker only)** In the **Claude Authentication** section, paste your token:
+   - **OAuth token** — run `claude setup-token` on your host machine to get an `sk-ant-oat...` token (uses your Claude Pro/Max subscription)
+   - **API key** — get an `sk-ant-api...` key from [console.anthropic.com](https://console.anthropic.com) (pay-per-use)
+3. Go to **Projects** and click **Add Project**.
+4. Enter a display name and the absolute path to your project root (tilde `~` is supported).
+5. RalphDash will copy the Ralph skills into your project automatically.
+6. Click the project card to open its dashboard. Use the **Workflow** wizard to generate requirements and start a run.
 
 ---
 
@@ -92,12 +100,14 @@ ralph-dash/
 ├── backend/                  # Express + TypeScript API
 │   └── src/
 │       ├── db/               # SQLite schema and connection (better-sqlite3)
-│       ├── routes/           # projects, runner, settings
-│       └── services/         # fileParser, fileCopier, processManager
+│       ├── routes/           # projects, runner, settings, workflow
+│       └── services/         # fileParser, fileCopier, processManager,
+│                             #   skillRunner, workflowDetector
 ├── frontend/                 # React + Vite + TypeScript
 │   └── src/
 │       ├── components/       # KanbanBoard, LogViewer, ProgressTimeline,
-│       │                     #   RunHistory, DeleteConfirmModal, Sidebar
+│       │                     #   RunHistory, DeleteConfirmModal, Sidebar,
+│       │                     #   WorkflowWizard, FileEditor, WizardStepIndicator
 │       ├── pages/            # Dashboard, Projects, Settings
 │       └── lib/api.ts        # Typed fetch wrapper
 ├── .env.example
@@ -112,8 +122,10 @@ ralph-dash/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/settings` | Get current settings |
+| `GET` | `/api/settings` | Get settings (includes `isDocker`, `claudeConfigured`) |
 | `PUT` | `/api/settings` | Update Ralph path |
+| `PUT` | `/api/settings/claude-token` | Save Claude auth token |
+| `DELETE` | `/api/settings/claude-token` | Remove Claude auth token |
 | `GET` | `/api/projects` | List all projects (with live status) |
 | `POST` | `/api/projects` | Add a new project |
 | `DELETE` | `/api/projects/:id` | Remove a project (stops active run) |
@@ -125,6 +137,16 @@ ralph-dash/
 | `POST` | `/api/projects/:id/run/stop` | Stop the active run |
 | `GET` | `/api/projects/:id/run/status` | Get run status and PID |
 | `GET` | `/api/projects/:id/run/output` | Poll run output (supports `?since=N`) |
+| `GET` | `/api/projects/:id/workflow/status` | Workflow step + skill status |
+| `GET` | `/api/projects/:id/workflow/files` | List workflow files (questions, PRDs) |
+| `GET` | `/api/projects/:id/workflow/file` | Read a workflow file (`?path=...`) |
+| `PUT` | `/api/projects/:id/workflow/file` | Save a workflow file |
+| `DELETE` | `/api/projects/:id/workflow/file` | Delete a workflow file (`?path=...`) |
+| `POST` | `/api/projects/:id/workflow/skill/start` | Start a Claude skill run |
+| `POST` | `/api/projects/:id/workflow/skill/stop` | Stop running skill |
+| `GET` | `/api/projects/:id/workflow/skill/status` | Get skill run status |
+| `GET` | `/api/projects/:id/workflow/skill/output` | Poll skill output (`?since=N`) |
+| `POST` | `/api/projects/:id/workflow/prd-json/validate` | Validate prd.json content |
 
 ---
 
@@ -186,5 +208,8 @@ docker compose down
 
 - **Database** — SQLite in WAL mode via `better-sqlite3`. Schema is auto-created on startup. The DB file lives at `data/ralph-dash.db` (mounted as a Docker volume).
 - **Process management** — runs are spawned as detached bash processes. Output is buffered (last 500 lines) and served via long-polling with an absolute line counter, so the log viewer survives buffer rotation.
-- **Frontend state** — TanStack React Query; the projects list and dashboard refetch every 3–5 seconds automatically.
-- **Security** — archive folder paths are validated against the project root to prevent path traversal. The container runs as the `node` user (non-root).
+- **Skill runner** — spawns `claude -p` with `--output-format stream-json --verbose` to execute skills. Stream-json events are parsed in real time into human-readable progress messages. The `CLAUDECODE` env var is stripped to avoid nested-session detection.
+- **Workflow detection** — `workflowDetector` scans the project's `tasks/` directory for `prd-questions-*.md` and `prd-*.md` files and determines which workflow step the project is on.
+- **Docker authentication** — when `RALPH_DOCKER=1` is set, Settings exposes a Claude token input. Tokens are stored in SQLite and injected as `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` when spawning skills.
+- **Frontend state** — TanStack React Query; the projects list and dashboard refetch every 3–5 seconds automatically. Skill output uses plain `setInterval` polling to avoid query-key caching conflicts.
+- **Security** — workflow file paths are validated against an allowlist (`tasks/`, `scripts/ralph/prd.json`) and resolved against the project root to prevent path traversal. The container runs as the `node` user (non-root).
