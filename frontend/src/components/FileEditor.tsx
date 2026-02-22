@@ -27,6 +27,9 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
   const { data, isLoading } = useQuery({
     queryKey: ['workflow-file', projectId, filePath],
     queryFn: () => getWorkflowFile(projectId, filePath),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity,
   });
 
   const saveMutation = useMutation({

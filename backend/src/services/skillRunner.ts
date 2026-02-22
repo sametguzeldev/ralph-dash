@@ -144,6 +144,8 @@ export function startSkill(
         cleanEnv.CLAUDE_CODE_OAUTH_TOKEN = tokenRow.value;
       } else if (tokenRow.value.startsWith('sk-ant-api')) {
         cleanEnv.ANTHROPIC_API_KEY = tokenRow.value;
+      } else {
+        console.warn(`[skillRunner] Stored Claude token has unrecognized prefix, skipping injection`);
       }
     }
   }
