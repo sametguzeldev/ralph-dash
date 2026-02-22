@@ -58,6 +58,7 @@ settingsRouter.put('/claude-token', (req, res) => {
   const tokenType = trimmed.startsWith('sk-ant-oat') ? 'oauth' : 'api-key';
 
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeToken', trimmed);
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeTokenType', tokenType);
 
   // For OAuth tokens, merge hasCompletedOnboarding into ~/.claude.json
   if (tokenType === 'oauth') {
@@ -81,10 +82,14 @@ settingsRouter.put('/claude-token', (req, res) => {
 });
 
 settingsRouter.delete('/claude-token', (_req, res) => {
-  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeToken');
+  const typeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeTokenType') as { value: string } | undefined;
+  const wasOAuth = typeRow?.value === 'oauth';
 
-  // Clean up hasCompletedOnboarding from ~/.claude.json
-  try {
+  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeToken');
+  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeTokenType');
+
+  // Only clean up ~/.claude.json if the deleted token was OAuth-type
+  if (wasOAuth) try {
     const homeDir = process.env.HOME || '/home/node';
     const claudeJsonPath = path.join(homeDir, '.claude.json');
     const raw = fs.readFileSync(claudeJsonPath, 'utf-8');
