@@ -7,7 +7,12 @@ export const settingsRouter = Router();
 
 settingsRouter.get('/', (_req, res) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('ralphPath') as { value: string } | undefined;
-  res.json({ ralphPath: row?.value || null });
+  const tokenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeToken') as { value: string } | undefined;
+  res.json({
+    ralphPath: row?.value || null,
+    isDocker: !!process.env.RALPH_DOCKER,
+    claudeConfigured: !!tokenRow?.value,
+  });
 });
 
 settingsRouter.put('/', (req, res) => {
@@ -34,4 +39,41 @@ settingsRouter.put('/', (req, res) => {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('ralphPath', expandedPath);
 
   res.json({ ralphPath: expandedPath });
+});
+
+// Claude token management (Docker authentication)
+settingsRouter.put('/claude-token', (req, res) => {
+  const { token } = req.body;
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'token is required' });
+  }
+
+  const trimmed = token.trim();
+
+  if (!trimmed.startsWith('sk-ant-api') && !trimmed.startsWith('sk-ant-oat')) {
+    return res.status(400).json({ error: 'Token must start with sk-ant-api (API key) or sk-ant-oat (OAuth token)' });
+  }
+
+  const tokenType = trimmed.startsWith('sk-ant-oat') ? 'oauth' : 'api-key';
+
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeToken', trimmed);
+
+  // For OAuth tokens, write ~/.claude.json with hasCompletedOnboarding
+  if (tokenType === 'oauth') {
+    try {
+      const homeDir = process.env.HOME || '/home/node';
+      const claudeJsonPath = path.join(homeDir, '.claude.json');
+      fs.writeFileSync(claudeJsonPath, JSON.stringify({ hasCompletedOnboarding: true }, null, 2));
+    } catch (err) {
+      console.error('Failed to write ~/.claude.json:', err);
+    }
+  }
+
+  res.json({ success: true, tokenType });
+});
+
+settingsRouter.delete('/claude-token', (_req, res) => {
+  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeToken');
+  res.json({ success: true });
 });

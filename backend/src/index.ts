@@ -6,6 +6,7 @@ import { initializeDatabase } from './db/schema.js';
 import { settingsRouter } from './routes/settings.js';
 import { projectsRouter } from './routes/projects.js';
 import { runnerRouter } from './routes/runner.js';
+import { workflowRouter } from './routes/workflow.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,7 @@ initializeDatabase();
 app.use('/api/settings', settingsRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/projects', runnerRouter);
+app.use('/api/projects', workflowRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

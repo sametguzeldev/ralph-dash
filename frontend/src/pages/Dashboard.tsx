@@ -7,6 +7,7 @@ import { ProgressTimeline } from '../components/ProgressTimeline';
 import { LogViewer } from '../components/LogViewer';
 import { RunHistory } from '../components/RunHistory';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
+import { WorkflowWizard } from '../components/WorkflowWizard';
 
 export function Dashboard() {
   const { id } = useParams<{ id: string }>();
@@ -71,7 +72,7 @@ export function Dashboard() {
             onClick={() => navigate('/projects')}
             className="text-xs text-gray-500 hover:text-gray-300 mb-2 block"
           >
-            ← Back to projects
+            &larr; Back to projects
           </button>
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">{data.project.name}</h2>
@@ -127,7 +128,7 @@ export function Dashboard() {
           ) : (
             <button
               onClick={() => startMutation.mutate()}
-              disabled={startMutation.isPending}
+              disabled={startMutation.isPending || !data.prd}
               className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
             >
               Start Run
@@ -136,17 +137,15 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* Workflow Wizard */}
+      <WorkflowWizard
+        projectId={projectId}
+        isRunning={isRunning}
+        onStartRun={() => startMutation.mutate()}
+      />
+
       {/* Kanban Board */}
-      {data.prd ? (
-        <KanbanBoard stories={data.prd.userStories} />
-      ) : (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
-          <p className="text-gray-500">No PRD found</p>
-          <p className="text-xs text-gray-600 mt-1">
-            Create a prd.json at {data.project.path}/scripts/ralph/prd.json
-          </p>
-        </div>
-      )}
+      {data.prd && <KanbanBoard stories={data.prd.userStories} />}
 
       {/* Log Viewer */}
       <LogViewer projectId={projectId} running={isRunning} />

@@ -2,6 +2,7 @@ node_modules/
 dist/
 data/
 *.db
+*.tsbuildinfo
 .env
 docker-compose.override.yml
 .claude/

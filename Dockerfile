@@ -14,6 +14,13 @@ RUN npm run build
 
 FROM node:22-slim
 WORKDIR /app
+
+# Install Claude Code
+RUN npm install -g @anthropic-ai/claude-code
+
+# Create directory for Claude config and credentials
+RUN mkdir -p /home/node/.claude && chown -R node:node /home/node
+
 COPY --from=backend-build /app/backend/dist ./dist
 COPY --from=backend-build /app/backend/package.json ./
 COPY --from=backend-build /app/backend/package-lock.json* ./
@@ -22,6 +29,7 @@ COPY --from=frontend-build /app/frontend/dist ./public
 
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data
+ENV RALPH_DOCKER=1
 
 RUN chown -R node:node /app
 EXPOSE 3001
