@@ -6,6 +6,7 @@ import { db } from '../db/connection.js';
 import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
 import { getRunStatus, stopRun } from '../services/processManager.js';
+import { detectWorkflowStep } from '../services/workflowDetector.js';
 
 export const projectsRouter = Router();
 
@@ -145,6 +146,7 @@ projectsRouter.get('/:id/status', (req, res) => {
   const progress = parseProgress(project.path);
   const branch = readBranch(project.path);
   const runStatus = getRunStatus(project.id);
+  const workflowStatus = detectWorkflowStep(project.path);
 
   // Derive task statuses
   const tasks = prd?.userStories.map(story => ({
@@ -158,6 +160,12 @@ projectsRouter.get('/:id/status', (req, res) => {
     progress,
     branch,
     runStatus: runStatus.running ? 'running' : 'stopped',
+    workflowStep: workflowStatus.step,
+    workflowFiles: {
+      questions: workflowStatus.questionsFiles,
+      prds: workflowStatus.prdFiles,
+      hasPrdJson: workflowStatus.hasPrdJson,
+    },
     lastRefreshed: new Date().toISOString(),
   });
 });

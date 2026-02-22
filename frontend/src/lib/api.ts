@@ -13,14 +13,33 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // Settings
+export interface SettingsResponse {
+  ralphPath: string | null;
+  isDocker: boolean;
+  claudeConfigured: boolean;
+}
+
 export function getSettings() {
-  return request<{ ralphPath: string | null }>('/settings');
+  return request<SettingsResponse>('/settings');
 }
 
 export function updateSettings(ralphPath: string) {
   return request<{ ralphPath: string }>('/settings', {
     method: 'PUT',
     body: JSON.stringify({ ralphPath }),
+  });
+}
+
+export function saveClaudeToken(token: string) {
+  return request<{ success: boolean; tokenType: 'api-key' | 'oauth' }>('/settings/claude-token', {
+    method: 'PUT',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function deleteClaudeToken() {
+  return request<{ success: boolean }>('/settings/claude-token', {
+    method: 'DELETE',
   });
 }
 
@@ -96,6 +115,12 @@ export interface ProjectStatus {
   progress: ProgressData | null;
   branch: string | null;
   runStatus: 'running' | 'stopped';
+  workflowStep?: 'no-files' | 'questions-created' | 'questions-answered' | 'prd-created' | 'prd-json-ready';
+  workflowFiles?: {
+    questions: string[];
+    prds: string[];
+    hasPrdJson: boolean;
+  };
   lastRefreshed: string;
 }
 
@@ -132,4 +157,99 @@ export function getArchives(id: number) {
 
 export function getArchiveDetail(id: number, folder: string) {
   return request<ProjectStatus>(`/projects/${id}/archives/${encodeURIComponent(folder)}`);
+}
+
+// Workflow
+export type SkillName = 'prd-questions' | 'prd' | 'ralph';
+
+export interface WorkflowFileInfo {
+  relativePath: string;
+  type: 'questions' | 'prd' | 'prd-json';
+  modifiedAt: string;
+  sizeBytes: number;
+}
+
+export interface WorkflowFileContent {
+  relativePath: string;
+  content: string;
+  modifiedAt: string;
+}
+
+export interface SkillStatus {
+  running: boolean;
+  skill: SkillName | null;
+  status: 'running' | 'completed' | 'failed' | null;
+  startedAt?: string;
+  exitCode: number | null;
+}
+
+export interface WorkflowStatus {
+  step: string;
+  questionsFiles: string[];
+  prdFiles: string[];
+  hasPrdJson: boolean;
+  prdJsonValid: boolean;
+  skillStatus: SkillStatus;
+}
+
+export interface PrdJsonValidation {
+  valid: boolean;
+  errors: string[];
+  storyCount: number;
+}
+
+export function getWorkflowStatus(id: number) {
+  return request<WorkflowStatus>(`/projects/${id}/workflow/status`);
+}
+
+export function getWorkflowFiles(id: number) {
+  return request<WorkflowFileInfo[]>(`/projects/${id}/workflow/files`);
+}
+
+export function getWorkflowFile(id: number, filePath: string) {
+  return request<WorkflowFileContent>(`/projects/${id}/workflow/file?path=${encodeURIComponent(filePath)}`);
+}
+
+export function deleteWorkflowFile(id: number, filePath: string) {
+  return request<{ success: boolean }>(`/projects/${id}/workflow/file?path=${encodeURIComponent(filePath)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function saveWorkflowFile(id: number, filePath: string, content: string) {
+  return request<{ success: boolean }>(`/projects/${id}/workflow/file`, {
+    method: 'PUT',
+    body: JSON.stringify({ relativePath: filePath, content }),
+  });
+}
+
+export function startSkillRun(id: number, body: {
+  skill: SkillName;
+  featureDescription?: string;
+  questionsFile?: string;
+  prdFile?: string;
+}) {
+  return request<{ success: boolean }>(`/projects/${id}/workflow/skill/start`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function stopSkillRun(id: number) {
+  return request<{ success: boolean }>(`/projects/${id}/workflow/skill/stop`, { method: 'POST' });
+}
+
+export function getSkillStatus(id: number) {
+  return request<SkillStatus>(`/projects/${id}/workflow/skill/status`);
+}
+
+export function getSkillOutput(id: number, since = 0) {
+  return request<{ lines: string[]; total: number }>(`/projects/${id}/workflow/skill/output?since=${since}`);
+}
+
+export function validatePrdJson(id: number, content: string) {
+  return request<PrdJsonValidation>(`/projects/${id}/workflow/prd-json/validate`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
 }
