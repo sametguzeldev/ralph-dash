@@ -183,8 +183,10 @@ export interface SkillStatus {
   exitCode: number | null;
 }
 
+export type WorkflowStep = 'no-files' | 'questions-created' | 'questions-answered' | 'prd-created' | 'prd-json-ready';
+
 export interface WorkflowStatus {
-  step: string;
+  step: WorkflowStep;
   questionsFiles: string[];
   prdFiles: string[];
   hasPrdJson: boolean;

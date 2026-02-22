@@ -59,12 +59,19 @@ settingsRouter.put('/claude-token', (req, res) => {
 
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeToken', trimmed);
 
-  // For OAuth tokens, write ~/.claude.json with hasCompletedOnboarding
+  // For OAuth tokens, merge hasCompletedOnboarding into ~/.claude.json
   if (tokenType === 'oauth') {
     try {
       const homeDir = process.env.HOME || '/home/node';
       const claudeJsonPath = path.join(homeDir, '.claude.json');
-      fs.writeFileSync(claudeJsonPath, JSON.stringify({ hasCompletedOnboarding: true }, null, 2));
+      let existing: Record<string, unknown> = {};
+      try {
+        existing = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf-8'));
+      } catch {
+        // File doesn't exist or is invalid — start fresh
+      }
+      existing.hasCompletedOnboarding = true;
+      fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
     } catch (err) {
       console.error('Failed to write ~/.claude.json:', err);
     }
@@ -75,5 +82,22 @@ settingsRouter.put('/claude-token', (req, res) => {
 
 settingsRouter.delete('/claude-token', (_req, res) => {
   db.prepare('DELETE FROM settings WHERE key = ?').run('claudeToken');
+
+  // Clean up hasCompletedOnboarding from ~/.claude.json
+  try {
+    const homeDir = process.env.HOME || '/home/node';
+    const claudeJsonPath = path.join(homeDir, '.claude.json');
+    const raw = fs.readFileSync(claudeJsonPath, 'utf-8');
+    const existing = JSON.parse(raw);
+    delete existing.hasCompletedOnboarding;
+    if (Object.keys(existing).length === 0) {
+      fs.unlinkSync(claudeJsonPath);
+    } else {
+      fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
+    }
+  } catch {
+    // File doesn't exist or couldn't be updated — no-op
+  }
+
   res.json({ success: true });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getWorkflowStatus,
@@ -56,11 +56,26 @@ export function WorkflowWizard({ projectId, isRunning, onStartRun }: WorkflowWiz
     },
   });
 
-  // Auto-set active step based on workflow state
+  // Auto-set active step based on workflow state, but respect manual navigation
+  const [userOverride, setUserOverride] = useState(false);
   const suggestedStep = stepFromWorkflow(workflow, isRunning);
+  const prevSuggestedRef = useRef(suggestedStep);
+
   useEffect(() => {
-    setActiveStep(suggestedStep);
-  }, [suggestedStep]);
+    if (suggestedStep !== prevSuggestedRef.current) {
+      // Workflow actually progressed — reset override and follow
+      setUserOverride(false);
+      prevSuggestedRef.current = suggestedStep;
+    }
+    if (!userOverride) {
+      setActiveStep(suggestedStep);
+    }
+  }, [suggestedStep, userOverride]);
+
+  const handleStepClick = useCallback((step: number) => {
+    setActiveStep(step);
+    setUserOverride(true);
+  }, []);
 
   const steps = stepStatuses(workflow, isRunning);
   const skillRunning = workflow?.skillStatus?.running ?? false;
@@ -91,7 +106,7 @@ export function WorkflowWizard({ projectId, isRunning, onStartRun }: WorkflowWiz
           <WizardStepIndicator
             steps={steps}
             activeStep={activeStep}
-            onStepClick={setActiveStep}
+            onStepClick={handleStepClick}
           />
 
           {/* Step content */}

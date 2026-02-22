@@ -13,11 +13,13 @@ interface ProjectRow {
   path: string;
 }
 
-// Allowed file prefixes for security
-const ALLOWED_PATHS = ['tasks/', 'scripts/ralph/prd.json'];
+// Allowed paths for security: entries ending with '/' are directory prefixes, others are exact matches
+const ALLOWED_DIRS = ['tasks/'];
+const ALLOWED_FILES = ['scripts/ralph/prd.json'];
 
 function isPathAllowed(relativePath: string): boolean {
-  return ALLOWED_PATHS.some(prefix => relativePath.startsWith(prefix));
+  return ALLOWED_DIRS.some(dir => relativePath.startsWith(dir))
+    || ALLOWED_FILES.includes(relativePath);
 }
 
 function resolveAndValidate(projectPath: string, relativePath: string): string | null {
@@ -178,11 +180,17 @@ workflowRouter.post('/:id/workflow/skill/start', (req, res) => {
   // Clear any completed skill run before starting a new one
   clearSkillRun(project.id);
 
-  const started = startSkill(project.id, project.path, skill, {
-    featureDescription,
-    questionsFile,
-    prdFile,
-  });
+  let started: boolean;
+  try {
+    started = startSkill(project.id, project.path, skill, {
+      featureDescription,
+      questionsFile,
+      prdFile,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to start skill';
+    return res.status(400).json({ error: message });
+  }
 
   if (!started) {
     return res.status(409).json({ error: 'A skill is already running for this project' });
