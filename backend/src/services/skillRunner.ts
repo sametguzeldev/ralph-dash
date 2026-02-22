@@ -13,6 +13,7 @@ interface SkillRun {
   startedAt: Date;
   status: 'running' | 'completed' | 'failed';
   exitCode: number | null;
+  stoppedByUser: boolean;
 }
 
 const MAX_OUTPUT_LINES = 500;
@@ -168,6 +169,7 @@ export function startSkill(
     startedAt: new Date(),
     status: 'running',
     exitCode: null,
+    stoppedByUser: false,
   };
 
   const appendLine = (line: string) => {
@@ -197,8 +199,11 @@ export function startSkill(
   });
 
   // Stderr goes through as-is (error messages, warnings)
+  let stderrBuffer = '';
   child.stderr?.on('data', (data: Buffer) => {
-    const lines = data.toString().split('\n');
+    stderrBuffer += data.toString();
+    const lines = stderrBuffer.split('\n');
+    stderrBuffer = lines.pop() || '';
     for (const line of lines) {
       if (line.trim()) appendLine(line);
     }
@@ -215,8 +220,13 @@ export function startSkill(
       }
     }
 
+    // Flush any remaining stderr buffer
+    if (stderrBuffer.trim()) {
+      appendLine(stderrBuffer.trim());
+    }
+
     const current = skillRuns.get(projectId);
-    if (current && current.process === child) {
+    if (current && current.process === child && !current.stoppedByUser) {
       current.status = code === 0 ? 'completed' : 'failed';
       current.exitCode = code;
     }
@@ -246,6 +256,7 @@ export function stopSkill(projectId: number): boolean {
     info.process.kill('SIGTERM');
   }
 
+  info.stoppedByUser = true;
   info.status = 'failed';
   info.exitCode = -1;
   return true;

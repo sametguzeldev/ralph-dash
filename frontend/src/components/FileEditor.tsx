@@ -20,7 +20,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
-  const [savedContent, setSavedContent] = useState('');
+  const savedContentRef = useRef('');
   const [validation, setValidation] = useState<PrdJsonValidation | null>(null);
   const [error, setError] = useState('');
 
@@ -33,7 +33,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     mutationFn: (content: string) => saveWorkflowFile(projectId, filePath, content),
     onSuccess: () => {
       const content = viewRef.current?.state.doc.toString() || '';
-      setSavedContent(content);
+      savedContentRef.current = content;
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
@@ -58,7 +58,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
       fileType === 'json' ? json() : markdown(),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
-          setHasChanges(update.state.doc.toString() !== savedContent);
+          setHasChanges(update.state.doc.toString() !== savedContentRef.current);
         }
       }),
     ];
@@ -74,7 +74,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     });
 
     viewRef.current = view;
-    setSavedContent(data.content);
+    savedContentRef.current = data.content;
 
     return () => {
       view.destroy();
@@ -99,11 +99,17 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     }
   }, [validateMutation]);
 
+  const handleClose = useCallback(() => {
+    if (!hasChanges || window.confirm('You have unsaved changes. Close anyway?')) {
+      onClose();
+    }
+  }, [hasChanges, onClose]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       } else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
@@ -111,7 +117,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, handleSave]);
+  }, [handleClose, handleSave]);
 
   const fileName = filePath.split('/').pop() || filePath;
 
@@ -131,7 +137,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
           )}
         </div>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="text-gray-400 hover:text-gray-200 text-xl leading-none"
         >
           &times;
@@ -190,7 +196,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
             </button>
           )}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors"
           >
             Cancel
