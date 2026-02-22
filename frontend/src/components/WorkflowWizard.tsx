@@ -11,6 +11,23 @@ import {
 import { WizardStepIndicator } from './WizardStepIndicator';
 import { FileEditor } from './FileEditor';
 
+/** Shared hook for file-selection state with auto-sync. */
+function useSelectedFile(files: string[]): [string, (v: string) => void] {
+  const [selected, setSelected] = useState('');
+
+  useEffect(() => {
+    if (files.length === 0) {
+      setSelected('');
+    } else if (files.length === 1) {
+      setSelected(files[0] ?? '');
+    } else if (!files.includes(selected)) {
+      setSelected(files[files.length - 1] ?? '');
+    }
+  }, [files, selected]);
+
+  return [selected, setSelected];
+}
+
 interface WorkflowWizardProps {
   projectId: number;
   isRunning: boolean;
@@ -330,16 +347,7 @@ function PrdStep({
   const queryClient = useQueryClient();
   const questionsFiles = workflow?.questionsFiles || [];
   const prdFiles = workflow?.prdFiles || [];
-  const [selectedFile, setSelectedFile] = useState('');
-
-  // Auto-select when there's only one file, or keep selection in sync
-  useEffect(() => {
-    if (questionsFiles.length === 1) {
-      setSelectedFile(questionsFiles[0] ?? '');
-    } else if (questionsFiles.length > 0 && !questionsFiles.includes(selectedFile)) {
-      setSelectedFile(questionsFiles[questionsFiles.length - 1] ?? '');
-    }
-  }, [questionsFiles]);
+  const [selectedFile, setSelectedFile] = useSelectedFile(questionsFiles);
 
   const startMutation = useMutation({
     mutationFn: () => startSkillRun(projectId, { skill: 'prd', questionsFile: selectedFile }),
@@ -470,18 +478,9 @@ function PrdJsonStep({
 }) {
   const queryClient = useQueryClient();
   const prdFiles = workflow?.prdFiles || [];
-  const [selectedFile, setSelectedFile] = useState('');
+  const [selectedFile, setSelectedFile] = useSelectedFile(prdFiles);
   const hasPrdJson = workflow?.hasPrdJson ?? false;
   const prdJsonValid = workflow?.prdJsonValid ?? false;
-
-  // Auto-select when there's only one file, or keep selection in sync
-  useEffect(() => {
-    if (prdFiles.length === 1) {
-      setSelectedFile(prdFiles[0] ?? '');
-    } else if (prdFiles.length > 0 && !prdFiles.includes(selectedFile)) {
-      setSelectedFile(prdFiles[prdFiles.length - 1] ?? '');
-    }
-  }, [prdFiles]);
 
   const startMutation = useMutation({
     mutationFn: () => startSkillRun(projectId, { skill: 'ralph', prdFile: selectedFile }),
