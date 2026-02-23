@@ -15,6 +15,9 @@ RUN npm run build
 FROM node:22-slim
 WORKDIR /app
 
+# Install runtime dependencies (git is required by ralph-cc.sh)
+RUN apt-get update && apt-get install -y --no-install-recommends git jq && rm -rf /var/lib/apt/lists/*
+
 # Install Claude Code
 RUN npm install -g @anthropic-ai/claude-code@2.1.50
 

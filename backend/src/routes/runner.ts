@@ -18,9 +18,9 @@ runnerRouter.post('/:id/run/start', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
-  const started = startRun(project.id, project.path);
-  if (!started) {
-    return res.status(409).json({ error: 'Run already in progress' });
+  const result = startRun(project.id, project.path);
+  if (!result.ok) {
+    return res.status(409).json({ error: result.error });
   }
 
   res.json({ success: true, ...getRunStatus(project.id) });

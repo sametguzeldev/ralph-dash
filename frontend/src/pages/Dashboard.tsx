@@ -117,23 +117,6 @@ export function Dashboard() {
               </span>
             )}
           </div>
-          {isRunning ? (
-            <button
-              onClick={() => stopMutation.mutate()}
-              disabled={stopMutation.isPending}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg text-sm font-medium"
-            >
-              Stop Run
-            </button>
-          ) : (
-            <button
-              onClick={() => startMutation.mutate()}
-              disabled={startMutation.isPending || !data.prd}
-              className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
-            >
-              Start Run
-            </button>
-          )}
         </div>
       </div>
 
@@ -141,7 +124,8 @@ export function Dashboard() {
       <WorkflowWizard
         projectId={projectId}
         isRunning={isRunning}
-        onStartRun={() => startMutation.mutate()}
+        onStartRun={() => startMutation.mutateAsync()}
+        onStopRun={() => stopMutation.mutateAsync()}
       />
 
       {/* Kanban Board */}
