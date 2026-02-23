@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-02-23 - US-004
+- Added git identity injection to skillRunner.ts: reads `gitUserName` and `gitUserEmail` from settings table, sets GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME, GIT_COMMITTER_EMAIL on spawned claude process env
+- Only injects when none of the 4 git env vars are already set (same guard pattern as processManager)
+- If settings not present, spawns normally with no error
+- Files changed: `backend/src/services/skillRunner.ts`
+- **Learnings for future iterations:**
+  - The injection block goes between Claude token injection and the `spawn()` call
+  - Pattern is identical to processManager.ts — copy the guard + DB query block verbatim
+
+---
+
 ## 2026-02-23 - US-003
 - Added git identity injection to processManager.ts: reads `gitUserName` and `gitUserEmail` from settings table, sets GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME, GIT_COMMITTER_EMAIL on spawned process env
 - Only injects when none of the 4 git env vars are already set (guard pattern matches Claude token injection)
