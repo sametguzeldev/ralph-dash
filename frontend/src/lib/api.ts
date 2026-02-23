@@ -43,6 +43,30 @@ export function deleteClaudeToken() {
   });
 }
 
+export interface GitConfigRequest {
+  name: string;
+  email: string;
+}
+
+export interface GitConfigResponse {
+  success: boolean;
+  name: string;
+  email: string;
+}
+
+export function saveGitConfig(name: string, email: string) {
+  return request<GitConfigResponse>('/settings/git-config', {
+    method: 'PUT',
+    body: JSON.stringify({ name, email } satisfies GitConfigRequest),
+  });
+}
+
+export function deleteGitConfig() {
+  return request<{ success: boolean }>('/settings/git-config', {
+    method: 'DELETE',
+  });
+}
+
 // Projects
 export interface ProjectSummary {
   id: number;
