@@ -10,10 +10,13 @@ settingsRouter.get('/', (_req, res) => {
   const tokenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeToken') as { value: string } | undefined;
   const isDocker = !!process.env.RALPH_DOCKER;
 
+  const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
+
   const response: Record<string, unknown> = {
     ralphPath: row?.value || null,
     isDocker,
     claudeConfigured: !!tokenRow?.value,
+    claudeModel: modelRow?.value || null,
   };
 
   if (isDocker) {
@@ -116,6 +119,25 @@ settingsRouter.delete('/claude-token', (_req, res) => {
     // File doesn't exist or couldn't be updated — no-op
   }
 
+  res.json({ success: true });
+});
+
+// Claude model preference
+settingsRouter.put('/claude-model', (req, res) => {
+  const { model } = req.body;
+
+  if (!model || typeof model !== 'string' || !model.trim()) {
+    return res.status(400).json({ error: 'model is required' });
+  }
+
+  const trimmed = model.trim();
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeModel', trimmed);
+
+  res.json({ success: true, model: trimmed });
+});
+
+settingsRouter.delete('/claude-model', (_req, res) => {
+  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeModel');
   res.json({ success: true });
 });
 

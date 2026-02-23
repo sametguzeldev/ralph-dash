@@ -17,6 +17,7 @@ export interface SettingsResponse {
   ralphPath: string | null;
   isDocker: boolean;
   claudeConfigured: boolean;
+  claudeModel?: string | null;
   gitConfigured?: boolean;
   gitUserName?: string | null;
   gitUserEmail?: string | null;
@@ -42,6 +43,19 @@ export function saveClaudeToken(token: string) {
 
 export function deleteClaudeToken() {
   return request<{ success: boolean }>('/settings/claude-token', {
+    method: 'DELETE',
+  });
+}
+
+export function saveClaudeModel(model: string) {
+  return request<{ success: boolean; model: string }>('/settings/claude-model', {
+    method: 'PUT',
+    body: JSON.stringify({ model }),
+  });
+}
+
+export function deleteClaudeModel() {
+  return request<{ success: boolean }>('/settings/claude-model', {
     method: 'DELETE',
   });
 }

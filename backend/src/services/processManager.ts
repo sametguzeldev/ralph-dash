@@ -72,6 +72,12 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     }
   }
 
+  // Inject Claude model preference from DB
+  const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
+  if (modelRow?.value) {
+    runEnv.ANTHROPIC_MODEL = modelRow.value;
+  }
+
   const child = spawn('bash', [scriptPath], {
     cwd,
     detached: true,
