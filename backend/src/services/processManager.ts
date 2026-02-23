@@ -60,6 +60,18 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     }
   }
 
+  // Inject git identity from DB if not already set in the environment
+  if (!runEnv.GIT_AUTHOR_NAME && !runEnv.GIT_AUTHOR_EMAIL && !runEnv.GIT_COMMITTER_NAME && !runEnv.GIT_COMMITTER_EMAIL) {
+    const nameRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserName') as { value: string } | undefined;
+    const emailRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserEmail') as { value: string } | undefined;
+    if (nameRow?.value && emailRow?.value) {
+      runEnv.GIT_AUTHOR_NAME = nameRow.value;
+      runEnv.GIT_AUTHOR_EMAIL = emailRow.value;
+      runEnv.GIT_COMMITTER_NAME = nameRow.value;
+      runEnv.GIT_COMMITTER_EMAIL = emailRow.value;
+    }
+  }
+
   const child = spawn('bash', [scriptPath], {
     cwd,
     detached: true,
