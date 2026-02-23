@@ -562,9 +562,15 @@ function PrdJsonStep({
             <span className="text-gray-400">Edit</span>
           </button>
           {prdJsonValid ? (
-            <span className="text-xs text-green-400">Valid</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              Valid
+            </span>
           ) : (
-            <span className="text-xs text-red-400">Invalid — open editor to fix</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-900/50 text-red-400 border border-red-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+              Invalid
+            </span>
           )}
         </div>
       )}
