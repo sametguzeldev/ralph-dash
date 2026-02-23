@@ -24,12 +24,17 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
   const [validation, setValidation] = useState<PrdJsonValidation | null>(null);
   const [error, setError] = useState('');
 
-  const { data, isLoading } = useQuery({
+  // Invalidate cache on mount so we always fetch fresh content
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['workflow-file', projectId, filePath] });
+  }, [queryClient, projectId, filePath]);
+
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['workflow-file', projectId, filePath],
     queryFn: () => getWorkflowFile(projectId, filePath),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    staleTime: Infinity,
+    staleTime: 0,
   });
 
   const saveMutation = useMutation({
@@ -149,7 +154,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
 
       {/* Editor */}
       <div className="flex-1 overflow-hidden">
-        {isLoading ? (
+        {(isLoading || (isFetching && !data)) ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             Loading file...
           </div>
