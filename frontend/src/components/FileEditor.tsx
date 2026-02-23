@@ -20,7 +20,11 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const hasChangesRef = useRef(false);
   const savedContentRef = useRef('');
+  const isInitializedRef = useRef(false);
+  const [externalChangeWarning, setExternalChangeWarning] = useState(false);
+  const latestServerContentRef = useRef('');
   const [validation, setValidation] = useState<PrdJsonValidation | null>(null);
   const [error, setError] = useState('');
 
@@ -35,7 +39,11 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 0,
+    refetchInterval: 5000,
   });
+
+  // Keep hasChangesRef in sync for use in effects without re-triggering them
+  useEffect(() => { hasChangesRef.current = hasChanges; }, [hasChanges]);
 
   const saveMutation = useMutation({
     mutationFn: (content: string) => saveWorkflowFile(projectId, filePath, content),
@@ -43,6 +51,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
       const content = viewRef.current?.state.doc.toString() || '';
       savedContentRef.current = content;
       setHasChanges(false);
+      setExternalChangeWarning(false);
       queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
       onSaved?.();
@@ -56,9 +65,10 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     onError: (err: Error) => setError(err.message),
   });
 
-  // Initialize CodeMirror
+  // Initialize CodeMirror — only once when data first loads
   useEffect(() => {
-    if (!editorRef.current || !data) return;
+    if (!editorRef.current || !data || isInitializedRef.current) return;
+    isInitializedRef.current = true;
 
     const extensions = [
       basicSetup,
@@ -83,12 +93,40 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
 
     viewRef.current = view;
     savedContentRef.current = data.content;
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cleanup editor on unmount
+  useEffect(() => {
     return () => {
-      view.destroy();
+      viewRef.current?.destroy();
       viewRef.current = null;
     };
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Detect external file changes
+  useEffect(() => {
+    if (!data || !isInitializedRef.current) return;
+
+    if (data.content !== savedContentRef.current) {
+      if (hasChangesRef.current) {
+        // User has unsaved edits — show warning
+        latestServerContentRef.current = data.content;
+        setExternalChangeWarning(true);
+      } else {
+        // No unsaved edits — silently update editor content
+        savedContentRef.current = data.content;
+        if (viewRef.current) {
+          viewRef.current.dispatch({
+            changes: {
+              from: 0,
+              to: viewRef.current.state.doc.length,
+              insert: data.content,
+            },
+          });
+        }
+      }
+    }
+  }, [data]);
 
   const handleSave = useCallback(() => {
     const content = viewRef.current?.state.doc.toString();
@@ -106,6 +144,26 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
       validateMutation.mutate(content);
     }
   }, [validateMutation]);
+
+  const handleReload = useCallback(() => {
+    const content = latestServerContentRef.current;
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        changes: {
+          from: 0,
+          to: viewRef.current.state.doc.length,
+          insert: content,
+        },
+      });
+    }
+    savedContentRef.current = content;
+    setHasChanges(false);
+    setExternalChangeWarning(false);
+  }, []);
+
+  const handleDismissWarning = useCallback(() => {
+    setExternalChangeWarning(false);
+  }, []);
 
   const handleClose = useCallback(() => {
     if (!hasChanges || window.confirm('You have unsaved changes. Close anyway?')) {
@@ -151,6 +209,27 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
           &times;
         </button>
       </div>
+
+      {/* External change warning */}
+      {externalChangeWarning && (
+        <div className="flex items-center justify-between px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-300 text-sm">
+          <span>This file was modified externally. Reload to see changes?</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDismissWarning}
+              className="px-2 py-1 text-xs text-amber-400 hover:text-amber-200 transition-colors"
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={handleReload}
+              className="px-2 py-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 rounded transition-colors"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Editor */}
       <div className="flex-1 overflow-hidden">
