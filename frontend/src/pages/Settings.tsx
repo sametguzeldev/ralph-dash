@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSettings, updateSettings, saveClaudeToken, deleteClaudeToken } from '../lib/api';
+import { getSettings, updateSettings, saveClaudeToken, deleteClaudeToken, saveGitConfig, deleteGitConfig } from '../lib/api';
 
 export function Settings() {
   const queryClient = useQueryClient();
@@ -11,6 +11,11 @@ export function Settings() {
   const [claudeToken, setClaudeToken] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [tokenMessage, setTokenMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Git config state
+  const [gitName, setGitName] = useState('');
+  const [gitEmail, setGitEmail] = useState('');
+  const [gitMessage, setGitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const { data } = useQuery({
     queryKey: ['settings'],
@@ -56,6 +61,58 @@ export function Settings() {
       setTokenMessage({ type: 'error', text: err.message });
     },
   });
+
+  const gitSaveMutation = useMutation({
+    mutationFn: ({ name, email }: { name: string; email: string }) => saveGitConfig(name, email),
+    onSuccess: (result) => {
+      setGitMessage({ type: 'success', text: `Saved! Git identity: ${result.name} <${result.email}>` });
+      setGitName('');
+      setGitEmail('');
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: (err: Error) => {
+      setGitMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const gitDeleteMutation = useMutation({
+    mutationFn: () => deleteGitConfig(),
+    onSuccess: () => {
+      setGitMessage({ type: 'success', text: 'Git identity removed' });
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: (err: Error) => {
+      setGitMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const handleSaveGit = () => {
+    setGitMessage(null);
+    const trimmedName = gitName.trim();
+    const trimmedEmail = gitEmail.trim();
+    if (!trimmedName && !trimmedEmail) {
+      setGitMessage({ type: 'error', text: 'Both name and email are required' });
+      return;
+    }
+    if (!trimmedName) {
+      setGitMessage({ type: 'error', text: 'Git User Name is required' });
+      return;
+    }
+    if (!trimmedEmail) {
+      setGitMessage({ type: 'error', text: 'Git User Email is required' });
+      return;
+    }
+    if (!/^[^@]+@[^@]+$/.test(trimmedEmail)) {
+      setGitMessage({ type: 'error', text: 'Email must contain @ with text on both sides' });
+      return;
+    }
+    gitSaveMutation.mutate({ name: trimmedName, email: trimmedEmail });
+  };
+
+  const handleRemoveGit = () => {
+    setGitMessage(null);
+    gitDeleteMutation.mutate();
+  };
 
   const handleSave = () => {
     setMessage(null);
@@ -117,6 +174,71 @@ export function Settings() {
           </ul>
         </div>
       </div>
+
+      {/* Git Configuration — only shown for Docker users */}
+      {data?.isDocker && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Git Configuration
+            </label>
+            {data.gitConfigured && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                Configured as {data.gitUserName} &lt;{data.gitUserEmail}&gt;
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            In Docker, git does not have access to your host git identity. Set your name and email here so commits made by Ralph have the correct author.
+          </p>
+
+          {data.gitConfigured ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400">
+                {data.gitUserName} &lt;{data.gitUserEmail}&gt;
+              </span>
+              <button
+                onClick={handleRemoveGit}
+                disabled={gitDeleteMutation.isPending}
+                className="px-3 py-1.5 text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+              >
+                {gitDeleteMutation.isPending ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={gitName}
+                onChange={e => setGitName(e.target.value)}
+                placeholder="Git User Name"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+              />
+              <input
+                type="email"
+                value={gitEmail}
+                onChange={e => setGitEmail(e.target.value)}
+                placeholder="Git User Email"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+              />
+              <button
+                onClick={handleSaveGit}
+                disabled={gitSaveMutation.isPending}
+                className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              >
+                {gitSaveMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+
+          {gitMessage && (
+            <p className={`mt-3 text-sm ${gitMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {gitMessage.text}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Claude Authentication — only shown for Docker users */}
       {data?.isDocker && (

@@ -17,6 +17,9 @@ export interface SettingsResponse {
   ralphPath: string | null;
   isDocker: boolean;
   claudeConfigured: boolean;
+  gitConfigured?: boolean;
+  gitUserName?: string | null;
+  gitUserEmail?: string | null;
 }
 
 export function getSettings() {
