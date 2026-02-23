@@ -162,13 +162,21 @@ export function startSkill(
     }
   }
 
-  const child = spawn('claude', [
+  // Build CLI args, optionally injecting --model from settings
+  const cliArgs = [
     '-p', prompt,
     '--append-system-prompt', skillContent,
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--verbose',
-  ], {
+  ];
+
+  const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
+  if (modelRow?.value) {
+    cliArgs.push('--model', modelRow.value);
+  }
+
+  const child = spawn('claude', cliArgs, {
     cwd: projectPath,
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
