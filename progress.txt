@@ -8,6 +8,24 @@
 
 ---
 
+## 2026-02-23 - US-003 (stale-file-cache)
+- Added external change detection and warning banner to FileEditor component
+- Editor now polls server every 5s via `refetchInterval: 5000` on the workflow-file query
+- If user has unsaved changes and server content differs from `savedContentRef.current`, an amber warning banner appears: "This file was modified externally. Reload to see changes?"
+- Banner has Reload button (replaces editor content with fresh server content, resets savedContentRef and hasChanges) and Dismiss button (hides warning, keeps user edits)
+- If user has no unsaved changes, editor content silently updates to match server
+- Refactored editor initialization to only run once (using `isInitializedRef`) instead of re-creating on every data change, so polling doesn't destroy user edits
+- Uses `hasChangesRef` (synced via effect) to read hasChanges state in the detection effect without causing re-triggers
+- Warning auto-dismisses on save
+- Files changed: `frontend/src/components/FileEditor.tsx`
+- **Learnings for future iterations:**
+  - CodeMirror `EditorView.dispatch({ changes: { from, to, insert } })` replaces editor content programmatically
+  - To prevent useEffect from re-running on React Query refetch, use a ref guard (`isInitializedRef`) for one-time initialization
+  - Use a mirrored ref (`hasChangesRef`) when reading state in an effect that shouldn't re-trigger on that state change
+  - Frontend dev deps may not be installed — run `npm install --include=dev` in frontend/ before building
+
+---
+
 ## 2026-02-23 - US-004
 - Added git identity injection to skillRunner.ts: reads `gitUserName` and `gitUserEmail` from settings table, sets GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME, GIT_COMMITTER_EMAIL on spawned claude process env
 - Only injects when none of the 4 git env vars are already set (same guard pattern as processManager)

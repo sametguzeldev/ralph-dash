@@ -1,0 +1,61 @@
+{
+  "project": "RalphDash",
+  "branchName": "ralph/stale-file-cache",
+  "description": "Fix Stale File Cache in FileEditor - Ensure fresh content on open, warn about external changes, and surface prd.json validation in workflow polling",
+  "qualityChecks": {
+    "compile": "cd /Users/nova/PersonalProjects/ralph-dash && npm run build"
+  },
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Invalidate file cache on editor open",
+      "description": "As a user, I want to see the latest file content every time I open the FileEditor so that I'm never viewing stale data.",
+      "acceptanceCriteria": [
+        "When the FileEditor mounts, the ['workflow-file', projectId, filePath] query cache is invalidated before fetching",
+        "Remove staleTime: Infinity from the file content query (use default or a short staleTime)",
+        "The loading state displays while fresh content is fetched",
+        "Opening the same file twice in a row fetches fresh content both times",
+        "Typecheck passes (npm run build in frontend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Include prd.json validation status in workflow polling",
+      "description": "As a user, I want the workflow wizard to show whether prd.json is valid or invalid without me having to open the editor and click Validate.",
+      "acceptanceCriteria": [
+        "The GET /projects/:id/workflow/status endpoint includes a prdJsonValid field (verify the backend actually computes and returns it)",
+        "If prdJsonValid is already returned, ensure the WorkflowWizard UI displays the validation state (e.g., Valid / Invalid badge) in the prd.json step",
+        "Validation status updates automatically via the existing 2-5s workflow polling — no additional polling or endpoints needed",
+        "Typecheck passes (npm run build in frontend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Warn user of external changes when they have unsaved edits",
+      "description": "As a user, I want to be warned if a file I'm editing was modified externally so that I can choose to reload or keep my edits.",
+      "acceptanceCriteria": [
+        "If the user has unsaved changes and the file content from the server differs from savedContentRef.current, show a warning banner: This file was modified externally. Reload to see changes?",
+        "Banner includes a Reload button that replaces the editor content with the fresh server content and resets the savedContentRef and hasChanges state",
+        "Banner includes a Dismiss button that hides the warning and keeps the user's current edits",
+        "If the user has no unsaved changes, the editor silently loads the fresh content (no banner needed)",
+        "Warning banner uses amber/yellow styling, placed between header and editor area",
+        "Typecheck passes (npm run build in frontend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    }
+  ]
+}
