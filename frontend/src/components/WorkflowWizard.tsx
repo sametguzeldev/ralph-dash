@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getWorkflowStatus,
   getSkillOutput,
+  getRunOutput,
   startSkillRun,
   stopSkillRun,
   deleteWorkflowFile,
@@ -31,7 +32,8 @@ function useSelectedFile(files: string[]): [string, (v: string) => void] {
 interface WorkflowWizardProps {
   projectId: number;
   isRunning: boolean;
-  onStartRun: () => void;
+  onStartRun: () => Promise<unknown>;
+  onStopRun: () => Promise<unknown>;
 }
 
 const STEP_LABELS = ['Questions', 'PRD', 'prd.json', 'Run'];
@@ -56,7 +58,7 @@ function stepStatuses(w: WorkflowStatus | undefined, isRunning: boolean) {
   }));
 }
 
-export function WorkflowWizard({ projectId, isRunning, onStartRun }: WorkflowWizardProps) {
+export function WorkflowWizard({ projectId, isRunning, onStartRun, onStopRun }: WorkflowWizardProps) {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -159,9 +161,11 @@ export function WorkflowWizard({ projectId, isRunning, onStartRun }: WorkflowWiz
             )}
             {activeStep === 3 && (
               <RunStep
+                projectId={projectId}
                 isRunning={isRunning}
                 workflow={workflow}
                 onStartRun={onStartRun}
+                onStopRun={onStopRun}
               />
             )}
           </div>
@@ -571,17 +575,54 @@ function PrdJsonStep({
 // --- Step 4: Run ---
 
 function RunStep({
+  projectId,
   isRunning,
   workflow,
   onStartRun,
+  onStopRun,
 }: {
+  projectId: number;
   isRunning: boolean;
   workflow: WorkflowStatus | undefined;
-  onStartRun: () => void;
+  onStartRun: () => Promise<unknown>;
+  onStopRun: () => Promise<unknown>;
 }) {
   const hasPrdJson = workflow?.hasPrdJson ?? false;
   const prdJsonValid = workflow?.prdJsonValid ?? false;
   const canRun = hasPrdJson && prdJsonValid && !isRunning;
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  // Track when a run starts so the output log stays visible after it finishes
+  useEffect(() => {
+    if (isRunning) setHasStarted(true);
+  }, [isRunning]);
+
+  const handleStart = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await onStartRun();
+      setHasStarted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start run');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleStop = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await onStopRun();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop run');
+    } finally {
+      setPending(false);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -604,19 +645,35 @@ function RunStep({
         </p>
       )}
 
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
       {isRunning ? (
-        <p className="text-xs text-green-400 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          Ralph is running. See the log viewer below for live output.
-        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleStop}
+            disabled={pending}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+          >
+            {pending ? 'Stopping...' : 'Stop Run'}
+          </button>
+          <p className="text-xs text-green-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Running
+          </p>
+        </div>
       ) : (
         <button
-          onClick={onStartRun}
-          disabled={!canRun}
+          onClick={handleStart}
+          disabled={!canRun || pending}
           className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
         >
-          Start Run
+          {pending ? 'Starting...' : 'Start Run'}
         </button>
+      )}
+
+      {/* Inline run output log */}
+      {(isRunning || hasStarted) && (
+        <RunOutputLog projectId={projectId} running={isRunning} />
       )}
     </div>
   );
@@ -749,6 +806,93 @@ function SkillOutputLog({
             <span className="inline-block w-3 h-3 border-2 border-gray-600 border-t-ralph-400 rounded-full animate-spin" />
             Waiting for output...
           </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RunOutputLog({ projectId, running }: { projectId: number; running: boolean }) {
+  const [lines, setLines] = useState<string[]>([]);
+  const sinceRef = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevRunningRef = useRef(running);
+
+  // Reset when a new run starts
+  useEffect(() => {
+    if (running && !prevRunningRef.current) {
+      setLines([]);
+      sinceRef.current = 0;
+    }
+    prevRunningRef.current = running;
+  }, [running]);
+
+  // Poll for run output
+  useEffect(() => {
+    let active = true;
+
+    const fetchOutput = async () => {
+      try {
+        const data = await getRunOutput(projectId, sinceRef.current);
+        if (!active) return;
+        if (data.lines.length > 0) {
+          setLines(prev => [...prev, ...data.lines]);
+          sinceRef.current = data.total;
+        }
+      } catch {
+        // ignore fetch errors
+      }
+    };
+
+    fetchOutput();
+
+    if (running) {
+      const id = setInterval(fetchOutput, 1000);
+      return () => { active = false; clearInterval(id); };
+    }
+
+    // One final fetch after the run finishes
+    const timeout = setTimeout(fetchOutput, 500);
+    return () => { active = false; clearTimeout(timeout); };
+  }, [running, projectId]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  return (
+    <div className="bg-gray-950 rounded-lg overflow-hidden">
+      <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800 flex items-center gap-2">
+        Run Output
+        {running && (
+          <span className="text-green-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Live
+          </span>
+        )}
+        {!running && lines.length > 0 && (
+          <span className="text-gray-600">Finished</span>
+        )}
+      </div>
+      <div
+        ref={scrollRef}
+        className="h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
+      >
+        {lines.map((line, i) => (
+          <div key={i} className={`whitespace-pre-wrap ${line.startsWith('❌') || line.startsWith('Error') ? 'text-red-400' : line.startsWith('✅') ? 'text-green-400' : ''}`}>
+            {line}
+          </div>
+        ))}
+        {lines.length === 0 && running && (
+          <span className="text-gray-600 flex items-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-gray-600 border-t-ralph-400 rounded-full animate-spin" />
+            Waiting for output...
+          </span>
+        )}
+        {lines.length === 0 && !running && (
+          <span className="text-gray-600">No output captured.</span>
         )}
       </div>
     </div>
