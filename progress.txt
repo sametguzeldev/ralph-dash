@@ -14,3 +14,16 @@
   - `inProgressStories` field was already added to `ProjectSummary` in US-002/US-003, so the frontend type was ready
   - Pending count is derived: `totalStories - doneStories - inProgressStories`
 ---
+
+## 2026-02-23 - US-001
+- Added git config API endpoints to `backend/src/routes/settings.ts`
+- GET /api/settings now includes `gitConfigured`, `gitUserName`, `gitUserEmail` when `isDocker` is true
+- PUT /api/settings/git-config validates name (non-empty) and email (contains @ with text on both sides), stores as `gitUserName`/`gitUserEmail`
+- DELETE /api/settings/git-config removes both keys and returns `{ success: true }`
+- Files changed: `backend/src/routes/settings.ts`
+- **Learnings for future iterations:**
+  - `tsc` is not globally available — use `backend/node_modules/.bin/tsc --noEmit -p backend/tsconfig.json` for typechecks
+  - devDependencies may not be installed; run `npm install --include=dev` in backend/ first
+  - Settings route pattern: `db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)`
+  - Docker-only fields are conditionally added to the response object using `if (isDocker)`
+---
