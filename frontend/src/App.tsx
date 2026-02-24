@@ -25,7 +25,7 @@ export function App() {
         <div className="flex h-screen">
           <MobileHeader onToggle={() => setSidebarOpen(o => !o)} />
           <Sidebar sidebarOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto pt-[4.5rem] px-4 pb-4 md:p-6">
             <Routes>
               <Route path="/" element={<Navigate to="/projects" replace />} />
               <Route path="/settings" element={<Settings />} />
