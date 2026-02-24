@@ -1,0 +1,37 @@
+# Ralph Progress Log
+Started: Tue Feb 24 23:52:17 UTC 2026
+---
+
+## Codebase Patterns
+- No root-level package.json — run `npm run build` from `frontend/` and `backend/` separately
+- `scripts/ralph/` is gitignored — use `git add -f` for prd.json and progress.txt
+- Tailwind `md:` breakpoint is the responsive pivot point for mobile vs desktop
+- Sidebar props (sidebarOpen, onClose) are threaded through App.tsx for mobile drawer behavior
+- Sidebar renders two `<aside>` elements: desktop (hidden md:flex) and mobile drawer (fixed z-50 md:hidden) sharing SidebarContent
+- Mobile overlays use `pointer-events-none` + `opacity-0` when hidden, with CSS transitions for open/close
+---
+
+## 2026-02-24 - US-001
+- What was implemented: Mobile header bar with hamburger toggle icon, visible below md breakpoint. Added sidebarOpen state to App.tsx, created MobileHeader component, updated Sidebar to accept sidebarOpen/onClose props and hide below md.
+- Files changed:
+  - `frontend/src/App.tsx` — added useState for sidebarOpen, renders MobileHeader + passes props to Sidebar
+  - `frontend/src/components/MobileHeader.tsx` — new component with fixed header, hamburger icon (44x44 touch target), RalphDash brand text
+  - `frontend/src/components/Sidebar.tsx` — accepts SidebarProps interface, `hidden md:flex` to hide on mobile
+  - `scripts/ralph/prd.json` — marked US-001 as passes: true
+- **Learnings for future iterations:**
+  - The sidebar currently accepts `sidebarOpen` and `onClose` props but doesn't use them yet — US-002 will wire those up for the slide-out drawer
+  - The MobileHeader uses `md:hidden` and Sidebar uses `hidden md:flex` for the responsive toggle
+  - Touch targets use `w-11 h-11` (44px) for accessibility
+---
+
+## 2026-02-24 - US-002
+- What was implemented: Sidebar now functions as a slide-out drawer on mobile. Tapping hamburger opens the drawer from the left with a bg-black/50 backdrop. Close via backdrop tap, close (x) button, nav link click, or Escape key. Desktop sidebar unchanged.
+- Files changed:
+  - `frontend/src/components/Sidebar.tsx` — extracted SidebarContent for reuse, added mobile drawer overlay with backdrop, close button, Escape handler, nav-link-closes behavior. Desktop aside unchanged.
+  - `scripts/ralph/prd.json` — marked US-002 as passes: true
+- **Learnings for future iterations:**
+  - The Sidebar now renders two `<aside>` elements: desktop (hidden md:flex) and mobile drawer (fixed inset-0 z-50 md:hidden). This avoids complex conditional logic.
+  - SidebarContent is a shared internal component that accepts an optional `onLinkClick` callback for mobile close-on-navigate.
+  - The mobile drawer uses CSS transitions (opacity + translate-x) with pointer-events-none when closed, so the element stays mounted.
+  - Escape key listener is attached/detached based on `sidebarOpen` state to avoid unnecessary listeners.
+---
