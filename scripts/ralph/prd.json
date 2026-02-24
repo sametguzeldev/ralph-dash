@@ -1,21 +1,22 @@
 {
   "project": "RalphDash",
-  "branchName": "ralph/stale-file-cache",
-  "description": "Fix Stale File Cache in FileEditor - Ensure fresh content on open, warn about external changes, and surface prd.json validation in workflow polling",
+  "branchName": "ralph/responsive-design",
+  "description": "Responsive Design - Make the entire application usable on smartphones (375px+) using Tailwind responsive classes",
   "qualityChecks": {
     "compile": "cd /Users/nova/PersonalProjects/ralph-dash && npm run build"
   },
   "userStories": [
     {
       "id": "US-001",
-      "title": "Invalidate file cache on editor open",
-      "description": "As a user, I want to see the latest file content every time I open the FileEditor so that I'm never viewing stale data.",
+      "title": "Mobile header with hamburger toggle",
+      "description": "As a mobile user, I want a top header bar with a hamburger menu icon so that I can access navigation without the sidebar permanently taking up screen space.",
       "acceptanceCriteria": [
-        "When the FileEditor mounts, the ['workflow-file', projectId, filePath] query cache is invalidated before fetching",
-        "Remove staleTime: Infinity from the file content query (use default or a short staleTime)",
-        "The loading state displays while fresh content is fetched",
-        "Opening the same file twice in a row fetches fresh content both times",
-        "Typecheck passes (npm run build in frontend/)",
+        "Below md breakpoint, a fixed top header bar is visible with a hamburger icon (left) and 'RalphDash' brand text (right of icon)",
+        "The header uses the same dark styling as the sidebar (bg-gray-900 border-b border-gray-800)",
+        "The hamburger icon is at least 44x44px touch target",
+        "Above md breakpoint, the header is hidden and the sidebar displays as it does today (fixed w-56)",
+        "Add sidebarOpen state and toggle handler in App.tsx, pass as props to Sidebar and the mobile header",
+        "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
@@ -25,35 +26,197 @@
     },
     {
       "id": "US-002",
-      "title": "Include prd.json validation status in workflow polling",
-      "description": "As a user, I want the workflow wizard to show whether prd.json is valid or invalid without me having to open the editor and click Validate.",
+      "title": "Sidebar as slide-out drawer on mobile",
+      "description": "As a mobile user, I want the sidebar to slide in as an overlay drawer when I tap the hamburger icon, so I can navigate without losing content space.",
       "acceptanceCriteria": [
-        "The GET /projects/:id/workflow/status endpoint includes a prdJsonValid field (verify the backend actually computes and returns it)",
-        "If prdJsonValid is already returned, ensure the WorkflowWizard UI displays the validation state (e.g., Valid / Invalid badge) in the prd.json step",
-        "Validation status updates automatically via the existing 2-5s workflow polling — no additional polling or endpoints needed",
-        "Typecheck passes (npm run build in frontend/)",
+        "Tapping the hamburger icon slides the sidebar in from the left over the content",
+        "A semi-transparent backdrop (bg-black/50 or similar) covers the content behind the drawer",
+        "Tapping the backdrop closes the sidebar",
+        "A close (x) button is visible inside the drawer to close it",
+        "Tapping a navigation link closes the sidebar and navigates to the selected page",
+        "Pressing Escape closes the sidebar on mobile",
+        "When the sidebar is closed, main content takes 100% viewport width",
+        "The sidebar drawer has the same content and styling as the desktop sidebar",
+        "Above md breakpoint, sidebar behaves as today (always visible, no overlay)",
+        "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 1,
-      "passes": true,
+      "priority": 2,
+      "passes": false,
       "inProgress": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Warn user of external changes when they have unsaved edits",
-      "description": "As a user, I want to be warned if a file I'm editing was modified externally so that I can choose to reload or keep my edits.",
+      "title": "Main layout adapts to mobile",
+      "description": "As a mobile user, I want the main content area to use the full screen width and account for the mobile header, so nothing is cut off or overlapping.",
       "acceptanceCriteria": [
-        "If the user has unsaved changes and the file content from the server differs from savedContentRef.current, show a warning banner: This file was modified externally. Reload to see changes?",
-        "Banner includes a Reload button that replaces the editor content with the fresh server content and resets the savedContentRef and hasChanges state",
-        "Banner includes a Dismiss button that hides the warning and keeps the user's current edits",
-        "If the user has no unsaved changes, the editor silently loads the fresh content (no banner needed)",
-        "Warning banner uses amber/yellow styling, placed between header and editor area",
-        "Typecheck passes (npm run build in frontend/)",
+        "Below md, the main content area is w-full with no left margin/offset for the sidebar",
+        "Main content has top padding to account for the fixed mobile header height",
+        "The existing p-6 padding on main content reduces to p-4 on mobile for more usable space",
+        "Above md, layout is unchanged (sidebar + main side by side)",
+        "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 2,
-      "passes": true,
+      "priority": 3,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Project cards single-column on mobile",
+      "description": "As a mobile user, I want project cards displayed in a single full-width column so they are easy to read and tap.",
+      "acceptanceCriteria": [
+        "Below md, the project grid is a single column (grid-cols-1) with full-width cards",
+        "Project card text, badges, and progress bar remain readable at 375px width",
+        "The 'Add Project' button in the header remains accessible (does not overflow or overlap the title)",
+        "The Add Project modal is full-width on mobile with appropriate padding (no horizontal overflow)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Kanban columns stacked vertically on mobile",
+      "description": "As a mobile user, I want the kanban columns stacked vertically (Pending, then In Progress, then Done) so I can see all tasks without horizontal scrolling.",
+      "acceptanceCriteria": [
+        "Below md, kanban changes from grid-cols-3 to grid-cols-1 (single column, stacked)",
+        "Each column has a max-height relative to viewport (e.g. max-h-[50vh]) with internal overflow-y-auto scrolling",
+        "Column headers with status borders and counts remain visible above each scrollable area",
+        "Task cards are full-width and readable; expanded card details do not overflow",
+        "Above md, kanban displays as three columns (unchanged)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Dashboard header adapts to mobile",
+      "description": "As a mobile user, I want the project dashboard header (back link, project name, action buttons) to not overflow on narrow screens.",
+      "acceptanceCriteria": [
+        "Below md, the dashboard header stacks vertically: project name and status on top, action buttons (Delete, Sync) below",
+        "The back link ('← Projects') is visible and tappable",
+        "Branch badge and running indicator wrap naturally without horizontal overflow",
+        "Action buttons are full-width or appropriately sized for touch",
+        "Above md, dashboard header layout is unchanged",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Settings page mobile layout",
+      "description": "As a mobile user, I want the settings page form sections to be usable with full-width inputs and adequate spacing.",
+      "acceptanceCriteria": [
+        "Below md, settings sections stack vertically at full width (remove max-w-2xl constraint or let it be overridden)",
+        "All inputs are full-width on mobile",
+        "Input + button rows (e.g., Ralph Path input + Save) stack vertically if they overflow",
+        "Button touch targets are at least 44px tall",
+        "Above md, settings layout is unchanged",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Delete confirmation modal adapts to mobile",
+      "description": "As a mobile user, I want the delete confirmation modal to be readable and usable on small screens.",
+      "acceptanceCriteria": [
+        "Below md, the delete modal takes nearly full viewport width with small margins (mx-4)",
+        "The confirmation text input and buttons have adequate touch-friendly sizing",
+        "Modal content does not overflow horizontally at 375px",
+        "Above md, modal is unchanged",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "File editor touch-optimized on mobile",
+      "description": "As a mobile user, I want the file editor's controls (save, close, validate) to be large enough to tap comfortably.",
+      "acceptanceCriteria": [
+        "The header close button (x) is at least 44x44px touch target on mobile",
+        "Footer buttons (Cancel, Save, Validate) have increased padding (px-4 py-3 minimum) below md breakpoint",
+        "The file path in the footer is truncated or hidden on mobile to prevent overflow",
+        "The editor remains full-screen and scrollable on mobile",
+        "The external change warning banner buttons are comfortably tappable",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Collapsible sections default collapsed on mobile",
+      "description": "As a mobile user, I want LogViewer, RunHistory, ProgressTimeline, and WorkflowWizard to default to collapsed on mobile so the page isn't overwhelmingly long.",
+      "acceptanceCriteria": [
+        "Below md, LogViewer, RunHistory, WorkflowWizard, and the ProgressTimeline card default to collapsed state on initial render",
+        "ProgressTimeline is independently collapsible on mobile (not just its parent card)",
+        "LogViewer auto-expands when a run is actively in progress (even on mobile)",
+        "Each section's toggle button is at least 44px tall for easy tapping",
+        "Above md, default collapsed/expanded states remain as they are today",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Workflow wizard step indicator adapts to mobile",
+      "description": "As a mobile user, I want to see which workflow step I'm on without the full horizontal bar being cramped at small widths.",
+      "acceptanceCriteria": [
+        "Below md, the step indicator shows 'Step N of 4' with the current step name (e.g., 'Step 2 of 4 — PRD') instead of the full horizontal bar",
+        "The simplified indicator is centered or left-aligned within the wizard header",
+        "Above md, the full horizontal step indicator with all 4 steps displays as today",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Workflow wizard content areas constrained on mobile",
+      "description": "As a mobile user, I want wizard content areas (file lists, previews, output logs) to have a max-height with internal scrolling so action buttons stay accessible.",
+      "acceptanceCriteria": [
+        "Below md, wizard step content areas (file selector dropdowns, generated file lists, skill output logs) use a max-height (~300px) with overflow-y-auto",
+        "Action buttons (Generate, Edit, Delete, Start Run, Stop Run) remain visible without needing to scroll the full page",
+        "File selector dropdowns and buttons stack vertically if they were previously inline",
+        "Above md, wizard content areas display as today (no max-height constraint)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
       "inProgress": false,
       "notes": ""
     }
