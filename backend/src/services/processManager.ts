@@ -70,9 +70,9 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     if (!runEnv.GIT_COMMITTER_EMAIL) runEnv.GIT_COMMITTER_EMAIL = emailRow.value;
   }
 
-  // Inject Claude model preference from DB
+  // Inject Claude model preference from DB as fallback only when ANTHROPIC_MODEL is not already set
   const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
-  if (modelRow?.value) {
+  if (modelRow?.value && !runEnv.ANTHROPIC_MODEL) {
     runEnv.ANTHROPIC_MODEL = modelRow.value;
   }
 
