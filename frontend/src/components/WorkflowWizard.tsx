@@ -11,6 +11,7 @@ import {
 } from '../lib/api';
 import { WizardStepIndicator } from './WizardStepIndicator';
 import { FileEditor } from './FileEditor';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 /** Shared hook for file-selection state with auto-sync. */
 function useSelectedFile(files: string[]): [string, (v: string) => void] {
@@ -60,7 +61,8 @@ function stepStatuses(w: WorkflowStatus | undefined, isRunning: boolean) {
 
 export function WorkflowWizard({ projectId, isRunning, onStartRun, onStopRun }: WorkflowWizardProps) {
   const queryClient = useQueryClient();
-  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useIsMobile();
+  const [collapsed, setCollapsed] = useState(isMobile);
   const [activeStep, setActiveStep] = useState(0);
   const [featureDesc, setFeatureDesc] = useState('');
   const [editorOpen, setEditorOpen] = useState<{ path: string; type: 'markdown' | 'json' } | null>(null);
@@ -105,7 +107,7 @@ export function WorkflowWizard({ projectId, isRunning, onStartRun, onStopRun }: 
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 min-h-[44px] hover:bg-gray-800/50 transition-colors"
       >
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-200">Workflow</span>
