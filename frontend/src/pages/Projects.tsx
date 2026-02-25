@@ -20,7 +20,7 @@ function AddProjectModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <h3 className="text-lg font-bold mb-4">Add Project</h3>
 
@@ -113,9 +113,9 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
         {project.path}
       </p>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-1">
         {project.branch && (
-          <span className="text-xs bg-ralph-600/20 text-ralph-300 px-2 py-0.5 rounded font-mono">
+          <span className="text-xs bg-ralph-600/20 text-ralph-300 px-2 py-0.5 rounded font-mono truncate max-w-[60%]">
             {project.branch}
           </span>
         )}
@@ -149,11 +149,11 @@ export function Projects() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 mb-6">
         <h2 className="text-2xl font-bold">Projects</h2>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 rounded-lg text-sm font-medium transition-colors"
+          className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 rounded-lg text-sm font-medium transition-colors whitespace-nowrap shrink-0"
         >
           + Add Project
         </button>
