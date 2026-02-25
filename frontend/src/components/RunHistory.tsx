@@ -73,7 +73,7 @@ export function RunHistory({ projectId }: { projectId: number }) {
 
   const count = archives?.length ?? 0;
 
-  if (isError) return <p className="text-sm text-red-400 px-1">Failed to load run history.</p>;
+  if (isError && count === 0) return <p className="text-sm text-red-400 px-1">Failed to load run history.</p>;
   if (count === 0) return null;
 
   return (
