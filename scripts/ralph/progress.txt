@@ -35,3 +35,30 @@ Started: Tue Feb 24 23:52:17 UTC 2026
   - The mobile drawer uses CSS transitions (opacity + translate-x) with pointer-events-none when closed, so the element stays mounted.
   - Escape key listener is attached/detached based on `sidebarOpen` state to avoid unnecessary listeners.
 ---
+
+## 2026-02-24 - US-003
+- What was implemented: Main content area now adapts to mobile. Below md breakpoint, content takes full viewport width (no sidebar offset), has top padding to clear the fixed MobileHeader (h-14 = 3.5rem + 1rem padding = 4.5rem), and uses reduced p-4 padding. Above md, layout unchanged with p-6.
+- Files changed:
+  - `frontend/src/App.tsx` — changed `<main>` className from `p-6` to `pt-[4.5rem] px-4 pb-4 md:p-6`
+  - `scripts/ralph/prd.json` — marked US-003 as passes: true
+- **Learnings for future iterations:**
+  - The MobileHeader is `h-14` (3.5rem). Any content below it needs `pt-[4.5rem]` on mobile (header height + 1rem spacing).
+  - Use `md:p-6` shorthand to reset all padding at desktop breakpoint — CSS shorthand overrides individual longhands when it appears later in the stylesheet (Tailwind responsive variants come after base utilities).
+  - The sidebar uses `hidden md:flex`, so on mobile the `flex-1` main element already takes full width without needing explicit `w-full`.
+---
+
+## 2026-02-25 00:02 - Parallel wave: US-004,US-005,US-006,US-007,US-008
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-02-25 00:04 - US-009
+- What was implemented: File editor touch-optimized for mobile. Header close button now has 44x44px touch target (w-11 h-11). Footer buttons have increased padding on mobile (px-4 py-3) reverting to compact sizes at md breakpoint. File path hidden on mobile to prevent overflow. External change warning banner stacks vertically on mobile with larger tap targets for Dismiss/Reload buttons.
+- Files changed:
+  - `frontend/src/components/FileEditor.tsx` — close button gets w-11 h-11 flex centering; footer stacks vertically on mobile with hidden file path; footer buttons get px-4 py-3 on mobile, md:px-3 md:py-1.5 on desktop; warning banner stacks vertically on mobile with larger button sizing
+  - `scripts/ralph/prd.json` — marked US-009 as passes: true
+- **Learnings for future iterations:**
+  - FileEditor is a fixed inset-0 overlay (z-50), so it's already full-screen on mobile — no layout changes needed for the editor area itself
+  - The mobile-first approach for buttons: set mobile sizes as base classes (px-4 py-3) then override at md: breakpoint for desktop (md:px-3 md:py-1.5)
+  - Hiding the file path on mobile (`hidden md:block`) is simpler and cleaner than truncation since the file path is secondary info
+  - Warning banner uses flex-col on mobile + flex-row at md to prevent text+buttons from overflowing at 375px
+---

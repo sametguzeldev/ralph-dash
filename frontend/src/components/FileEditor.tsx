@@ -204,7 +204,7 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
         </div>
         <button
           onClick={handleClose}
-          className="text-gray-400 hover:text-gray-200 text-xl leading-none"
+          className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-gray-200 text-xl leading-none"
         >
           &times;
         </button>
@@ -212,18 +212,18 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
 
       {/* External change warning */}
       {externalChangeWarning && (
-        <div className="flex items-center justify-between px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-300 text-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-300 text-sm">
           <span>This file was modified externally. Reload to see changes?</span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleDismissWarning}
-              className="px-2 py-1 text-xs text-amber-400 hover:text-amber-200 transition-colors"
+              className="px-3 py-2 md:px-2 md:py-1 text-sm md:text-xs text-amber-400 hover:text-amber-200 transition-colors"
             >
               Dismiss
             </button>
             <button
               onClick={handleReload}
-              className="px-2 py-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 rounded transition-colors"
+              className="px-3 py-2 md:px-2 md:py-1 text-sm md:text-xs bg-amber-500/20 hover:bg-amber-500/30 rounded transition-colors"
             >
               Reload
             </button>
@@ -270,28 +270,28 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-t border-gray-700">
-        <span className="text-xs text-gray-500 font-mono">{filePath}</span>
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between px-4 py-3 bg-gray-900 border-t border-gray-700">
+        <span className="hidden md:block text-xs text-gray-500 font-mono truncate">{filePath}</span>
         <div className="flex items-center gap-2">
           {fileType === 'json' && (
             <button
               onClick={handleValidate}
               disabled={validateMutation.isPending}
-              className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
+              className="px-4 py-3 md:px-3 md:py-1.5 text-sm bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
             >
               {validateMutation.isPending ? 'Validating...' : 'Validate'}
             </button>
           )}
           <button
             onClick={handleClose}
-            className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+            className="px-4 py-3 md:px-3 md:py-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saveMutation.isPending || !hasChanges}
-            className="px-4 py-1.5 text-sm bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg font-medium transition-colors"
+            className="px-4 py-3 md:px-4 md:py-1.5 text-sm bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg font-medium transition-colors"
           >
             {saveMutation.isPending ? 'Saving...' : 'Save'}
           </button>
