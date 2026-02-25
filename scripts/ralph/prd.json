@@ -183,7 +183,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -199,7 +199,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -216,7 +216,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     }
