@@ -73,7 +73,7 @@ export function WorkflowWizard({ projectId, isRunning, onStartRun, onStopRun }: 
     queryFn: () => getWorkflowStatus(projectId),
     refetchInterval: (query) => {
       const running = query.state.data?.skillStatus?.running;
-      return running ? 2000 : 5000;
+      return running ? 3000 : 5000;
     },
   });
 
@@ -857,7 +857,7 @@ function RunOutputLog({ projectId, running }: { projectId: number; running: bool
     if (data?.lines) {
       if (data.lines.length > 0) {
         setLines(prev => [...prev, ...data.lines]);
-        sinceRef.current += data.lines.length;
+        sinceRef.current = data.total;
       }
     }
   }, [data]);
