@@ -66,15 +66,15 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div className="min-w-0">
           <button
             onClick={() => navigate('/projects')}
-            className="text-xs text-gray-500 hover:text-gray-300 mb-2 block"
+            className="text-xs text-gray-500 hover:text-gray-300 mb-2 block min-h-[44px] md:min-h-0 flex items-center"
           >
             &larr; Back to projects
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-2xl font-bold">{data.project.name}</h2>
             {isRunning && (
               <span className="flex items-center gap-1 text-xs text-green-400">
@@ -84,7 +84,7 @@ export function Dashboard() {
             )}
           </div>
           {data.branch && (
-            <span className="text-xs font-mono bg-ralph-600/20 text-ralph-300 px-2 py-0.5 rounded mt-1 inline-block">
+            <span className="text-xs font-mono bg-ralph-600/20 text-ralph-300 px-2 py-0.5 rounded mt-1 inline-block break-all">
               {data.branch}
             </span>
           )}
@@ -93,18 +93,18 @@ export function Dashboard() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full md:w-auto md:flex-shrink-0">
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="px-4 py-2 border border-red-600 text-red-400 hover:bg-red-600/10 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 md:flex-initial px-4 py-3 md:py-2 border border-red-600 text-red-400 hover:bg-red-600/10 rounded-lg text-sm font-medium transition-colors"
           >
             Delete Project
           </button>
-          <div className="relative">
+          <div className="relative flex-1 md:flex-initial">
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              className="w-full px-4 py-3 md:py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
               title="Re-copy skills & scripts from Ralph source"
             >
               {syncMutation.isPending ? 'Syncing...' : 'Sync Files'}
