@@ -15,10 +15,28 @@ export function WizardStepIndicator({ steps, activeStep, onStepClick }: WizardSt
 
   return (
     <>
-      {/* Mobile: simplified "Step N of 4 — Label" */}
-      <div className="md:hidden text-sm text-gray-300">
-        <span className="font-medium text-ralph-300">Step {activeStep + 1} of {steps.length}</span>
-        {showSeparator && <><span className="text-gray-500"> — </span><span>{activeLabel}</span></>}
+      {/* Mobile: prev/next nav with current step label */}
+      <div className="md:hidden flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => onStepClick(activeStep - 1)}
+          disabled={activeStep === 0}
+          className="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+        >
+          ‹ Prev
+        </button>
+        <span className="text-sm text-gray-300 text-center">
+          <span className="font-medium text-ralph-300">Step {activeStep + 1} of {steps.length}</span>
+          {showSeparator && <><span className="text-gray-500"> — </span><span>{activeLabel}</span></>}
+        </span>
+        <button
+          type="button"
+          onClick={() => onStepClick(activeStep + 1)}
+          disabled={activeStep === steps.length - 1}
+          className="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+        >
+          Next ›
+        </button>
       </div>
 
       {/* Desktop: full horizontal step indicator */}
