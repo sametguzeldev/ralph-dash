@@ -79,7 +79,7 @@ export function RunHistory({ projectId }: { projectId: number }) {
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-800/30 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 min-h-[44px] hover:bg-gray-800/30 transition-colors"
       >
         <h3 className="text-lg font-semibold">
           History{' '}
