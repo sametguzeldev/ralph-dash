@@ -62,3 +62,18 @@ Started: Tue Feb 24 23:52:17 UTC 2026
   - Hiding the file path on mobile (`hidden md:block`) is simpler and cleaner than truncation since the file path is secondary info
   - Warning banner uses flex-col on mobile + flex-row at md to prevent text+buttons from overflowing at 375px
 ---
+
+## 2026-02-25 00:08 - Parallel wave: US-010,US-011
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-02-25 00:10 - US-012
+- What was implemented: Wizard content areas constrained on mobile. File selector dropdowns and input+button rows stack vertically below md breakpoint. Generated file lists (questions files, PRD files) have max-h-[300px] with overflow-y-auto on mobile, unrestricted on desktop. Skill output and run output logs use smaller height on mobile (h-36 vs h-48 on desktop).
+- Files changed:
+  - `frontend/src/components/WorkflowWizard.tsx` — QuestionsStep input+button row gets flex-col md:flex-row; questions file list gets max-h-[300px] overflow-y-auto md:max-h-none; PrdStep file selector gets flex-col md:flex-row md:items-center; PRD file list gets max-h-[300px] overflow-y-auto md:max-h-none; PrdJsonStep file selector gets flex-col md:flex-row md:items-center; SkillOutputLog and RunOutputLog get h-36 md:h-48
+  - `scripts/ralph/prd.json` — marked US-012 as passes: true
+- **Learnings for future iterations:**
+  - Use `max-h-[300px] overflow-y-auto md:max-h-none md:overflow-visible` pattern to constrain scrollable lists on mobile while keeping desktop unconstrained
+  - Output log components (SkillOutputLog, RunOutputLog) already have fixed heights with overflow — just adjust the height value responsively (h-36 md:h-48)
+  - The `flex-col md:flex-row` pattern is the standard way to stack inline elements vertically on mobile
+---

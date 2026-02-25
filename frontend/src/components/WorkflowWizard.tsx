@@ -248,7 +248,7 @@ function QuestionsStep({
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row gap-2">
         <input
           type="text"
           value={featureDesc}
@@ -284,7 +284,7 @@ function QuestionsStep({
       {files.length > 0 && (
         <div>
           <span className="text-xs text-gray-500 block mb-1">Questions files:</span>
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-[300px] overflow-y-auto md:max-h-none md:overflow-visible">
             {files.map((f) => (
               <div
                 key={f}
@@ -387,7 +387,7 @@ function PrdStep({
         </p>
       )}
       {questionsFiles.length > 1 && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
           <span className="text-xs text-gray-400 shrink-0">Using:</span>
           <select
             value={selectedFile}
@@ -430,7 +430,7 @@ function PrdStep({
       {prdFiles.length > 0 && (
         <div>
           <span className="text-xs text-gray-500 block mb-1">PRD files:</span>
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-[300px] overflow-y-auto md:max-h-none md:overflow-visible">
             {prdFiles.map((f) => (
               <div
                 key={f}
@@ -515,7 +515,7 @@ function PrdJsonStep({
         </p>
       )}
       {prdFiles.length > 1 && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
           <span className="text-xs text-gray-400 shrink-0">Using:</span>
           <select
             value={selectedFile}
@@ -802,7 +802,7 @@ function SkillOutputLog({
       </div>
       <div
         ref={scrollRef}
-        className="h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
+        className="h-36 md:h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
       >
         {lines.map((line, i) => (
           <div key={i} className={`whitespace-pre-wrap ${line.startsWith('❌') || line.startsWith('Error') ? 'text-red-400' : line.startsWith('✅') ? 'text-green-400' : ''}`}>
@@ -886,7 +886,7 @@ function RunOutputLog({ projectId, running }: { projectId: number; running: bool
       </div>
       <div
         ref={scrollRef}
-        className="h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
+        className="h-36 md:h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
       >
         {lines.map((line, i) => (
           <div key={i} className={`whitespace-pre-wrap ${line.startsWith('❌') || line.startsWith('Error') ? 'text-red-400' : line.startsWith('✅') ? 'text-green-400' : ''}`}>
