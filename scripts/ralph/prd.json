@@ -3,7 +3,7 @@
   "branchName": "ralph/responsive-design",
   "description": "Responsive Design - Make the entire application usable on smartphones (375px+) using Tailwind responsive classes",
   "qualityChecks": {
-    "compile": "cd /Users/nova/PersonalProjects/ralph-dash && npm run build"
+    "compile": "cd ../.. && npm run build"
   },
   "userStories": [
     {

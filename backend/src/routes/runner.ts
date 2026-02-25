@@ -12,7 +12,8 @@ interface ProjectRow {
 
 runnerRouter.post('/:id/run/start', (req, res) => {
   const { id } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+  const projectId = parseInt(id, 10);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
 
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });

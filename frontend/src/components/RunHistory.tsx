@@ -17,7 +17,7 @@ function ArchiveRow({ projectId, archive }: { projectId: number; archive: Archiv
     <div className="border border-gray-800 rounded-lg overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/50 transition-colors text-left"
+        className="w-full flex items-center justify-between px-4 py-3 min-h-[44px] hover:bg-gray-800/50 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500 font-mono">{archive.date}</span>
@@ -68,11 +68,12 @@ export function RunHistory({ projectId }: { projectId: number }) {
   const { data: archives, isError } = useQuery({
     queryKey: ['archives', projectId],
     queryFn: () => getArchives(projectId),
+    refetchInterval: 3000,
   });
 
   const count = archives?.length ?? 0;
 
-  if (isError && count === 0) return <p className="text-sm text-red-400 px-1">Failed to load run history.</p>;
+  if (isError) return <p className="text-sm text-red-400 px-1">Failed to load run history.</p>;
   if (count === 0) return null;
 
   return (
