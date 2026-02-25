@@ -109,25 +109,24 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
   child.stdout?.on('data', appendOutput);
   child.stderr?.on('data', appendOutput);
 
+function scheduleCleanup(projectId: number, info: RunInfo): void {
+  setTimeout(() => {
+    const current = runs.get(projectId);
+    if (current === info) runs.delete(projectId);
+  }, FINISHED_TTL_MS);
+}
+
   child.on('close', (code) => {
     info.exitCode = code;
     info.finished = true;
-    // Keep the run info around so the frontend can read exit status & output,
-    // then clean up after TTL
-    setTimeout(() => {
-      const current = runs.get(projectId);
-      if (current === info) runs.delete(projectId);
-    }, FINISHED_TTL_MS);
+    scheduleCleanup(projectId, info);
   });
 
   child.on('error', (err) => {
     info.error = err.message;
     info.finished = true;
     info.exitCode = -1;
-    setTimeout(() => {
-      const current = runs.get(projectId);
-      if (current === info) runs.delete(projectId);
-    }, FINISHED_TTL_MS);
+    scheduleCleanup(projectId, info);
   });
 
   runs.set(projectId, info);
