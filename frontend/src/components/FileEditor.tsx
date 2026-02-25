@@ -33,8 +33,16 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     queryClient.invalidateQueries({ queryKey: ['workflow-file', projectId, filePath] });
   }, [queryClient, projectId, filePath]);
 
-  // Clear init guard when filePath/projectId changes
+  // Full reset when projectId/filePath changes - destroy EditorView, reset refs and UI state
   useEffect(() => {
+    viewRef.current?.destroy();
+    viewRef.current = null;
+    savedContentRef.current = '';
+    latestServerContentRef.current = '';
+    setHasChanges(false);
+    setExternalChangeWarning(false);
+    setValidation(null);
+    setError('');
     isInitializedRef.current = false;
   }, [projectId, filePath]);
 
