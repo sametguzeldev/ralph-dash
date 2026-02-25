@@ -1,9 +1,9 @@
 {
   "project": "RalphDash",
-  "branchName": "ralph/responsive-design",
+  "branchName": "develop",
   "description": "Responsive Design - Make the entire application usable on smartphones (375px+) using Tailwind responsive classes",
   "qualityChecks": {
-    "compile": "cd ../.. && npm run build"
+    "compile": "npm run build"
   },
   "userStories": [
     {
