@@ -174,7 +174,7 @@ export function Settings() {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div className="md:max-w-2xl">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
 
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -184,18 +184,18 @@ export function Settings() {
         <p className="text-xs text-gray-500 mb-3">
           Path to the Ralph repository (e.g., ~/PersonalProjects/ralph)
         </p>
-        <div className="flex gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
           <input
             type="text"
             value={ralphPath}
             onChange={e => setRalphPath(e.target.value)}
             placeholder="~/PersonalProjects/ralph"
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
           />
           <button
             onClick={handleSave}
             disabled={mutation.isPending}
-            className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
           >
             {mutation.isPending ? 'Saving...' : 'Save'}
           </button>
@@ -221,7 +221,7 @@ export function Settings() {
 
       {/* Claude Model */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mt-6">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
           <label className="block text-sm font-medium text-gray-300">
             Claude Model
           </label>
@@ -237,12 +237,12 @@ export function Settings() {
         </p>
 
         {data?.claudeModel ? (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
             <span className="text-sm text-gray-400">Current model: <span className="font-mono text-gray-200">{data.claudeModel}</span></span>
             <button
               onClick={handleRemoveModel}
               disabled={modelDeleteMutation.isPending}
-              className="px-3 py-1.5 text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
             >
               {modelDeleteMutation.isPending ? 'Removing...' : 'Reset to Default'}
             </button>
@@ -252,7 +252,7 @@ export function Settings() {
             <select
               value={claudeModel}
               onChange={e => { setClaudeModel(e.target.value); setModelMessage(null); }}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
             >
               <option value="">Select a model...</option>
               <option value="sonnet">Sonnet (latest)</option>
@@ -266,13 +266,13 @@ export function Settings() {
                 value={customModel}
                 onChange={e => setCustomModel(e.target.value)}
                 placeholder="e.g., claude-sonnet-4-6"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
               />
             )}
             <button
               onClick={handleSaveModel}
               disabled={modelSaveMutation.isPending || (!claudeModel || (claudeModel === 'custom' && !customModel.trim()))}
-              className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
             >
               {modelSaveMutation.isPending ? 'Saving...' : 'Save'}
             </button>
@@ -289,7 +289,7 @@ export function Settings() {
       {/* Git Configuration — only shown for Docker users */}
       {data?.isDocker && (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mt-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
             <label className="block text-sm font-medium text-gray-300">
               Git Configuration
             </label>
@@ -305,14 +305,14 @@ export function Settings() {
           </p>
 
           {data.gitConfigured ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
               <span className="text-sm text-gray-400">
                 {data.gitUserName} &lt;{data.gitUserEmail}&gt;
               </span>
               <button
                 onClick={handleRemoveGit}
                 disabled={gitDeleteMutation.isPending}
-                className="px-3 py-1.5 text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+                className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
               >
                 {gitDeleteMutation.isPending ? 'Removing...' : 'Remove'}
               </button>
@@ -324,19 +324,19 @@ export function Settings() {
                 value={gitName}
                 onChange={e => setGitName(e.target.value)}
                 placeholder="Git User Name"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
               />
               <input
                 type="email"
                 value={gitEmail}
                 onChange={e => setGitEmail(e.target.value)}
                 placeholder="Git User Email"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
               />
               <button
                 onClick={handleSaveGit}
                 disabled={gitSaveMutation.isPending}
-                className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
               >
                 {gitSaveMutation.isPending ? 'Saving...' : 'Save'}
               </button>
@@ -354,7 +354,7 @@ export function Settings() {
       {/* Claude Authentication — only shown for Docker users */}
       {data?.isDocker && (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mt-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
             <label className="block text-sm font-medium text-gray-300">
               Claude Authentication
             </label>
@@ -371,30 +371,30 @@ export function Settings() {
           </p>
 
           {data.claudeConfigured ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
               <span className="text-sm text-gray-400">Token is stored securely.</span>
               <button
                 onClick={handleRemoveToken}
                 disabled={deleteMutation.isPending}
-                className="px-3 py-1.5 text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+                className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
               >
                 {deleteMutation.isPending ? 'Removing...' : 'Remove'}
               </button>
             </div>
           ) : (
-            <div className="flex gap-3">
+            <div className="flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
                 <input
                   type={showToken ? 'text' : 'password'}
                   value={claudeToken}
                   onChange={e => setClaudeToken(e.target.value)}
                   placeholder="sk-ant-oat01-... or sk-ant-api03-..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 pr-16 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] pr-16 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowToken(!showToken)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300 px-2 py-1 transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300 px-2 py-1 min-h-[44px] transition-colors"
                 >
                   {showToken ? 'Hide' : 'Show'}
                 </button>
@@ -402,7 +402,7 @@ export function Settings() {
               <button
                 onClick={handleSaveToken}
                 disabled={tokenMutation.isPending || !claudeToken.trim()}
-                className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
               >
                 {tokenMutation.isPending ? 'Saving...' : 'Save'}
               </button>
