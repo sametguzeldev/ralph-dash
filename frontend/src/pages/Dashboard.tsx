@@ -8,6 +8,7 @@ import { LogViewer } from '../components/LogViewer';
 import { RunHistory } from '../components/RunHistory';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { WorkflowWizard } from '../components/WorkflowWizard';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 export function Dashboard() {
   const { id } = useParams<{ id: string }>();
@@ -31,8 +32,10 @@ export function Dashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
   });
 
+  const isMobile = useIsMobile();
   const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [timelineCollapsed, setTimelineCollapsed] = useState(isMobile);
 
   const syncMutation = useMutation({
     mutationFn: () => syncProjectFiles(projectId),
@@ -135,9 +138,19 @@ export function Dashboard() {
       <LogViewer projectId={projectId} running={isRunning} />
 
       {/* Progress Timeline */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-        <h3 className="text-lg font-semibold mb-4">Progress Timeline</h3>
-        <ProgressTimeline progress={data.progress} />
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setTimelineCollapsed(!timelineCollapsed)}
+          className="w-full flex items-center justify-between px-5 py-4 min-h-[44px] md:min-h-0 hover:bg-gray-800/30 transition-colors"
+        >
+          <h3 className="text-lg font-semibold">Progress Timeline</h3>
+          <span className="text-gray-500">{timelineCollapsed ? '▸' : '▾'}</span>
+        </button>
+        {!timelineCollapsed && (
+          <div className="px-5 pb-5">
+            <ProgressTimeline progress={data.progress} />
+          </div>
+        )}
       </div>
 
       {/* Run History */}
