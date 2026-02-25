@@ -17,6 +17,13 @@ const MAX_OUTPUT_LINES = 500;
 const FINISHED_TTL_MS = 60_000; // keep finished run info for 60s so the frontend can read it
 const runs = new Map<number, RunInfo>();
 
+function scheduleCleanup(projectId: number, info: RunInfo): void {
+  setTimeout(() => {
+    const current = runs.get(projectId);
+    if (current === info) runs.delete(projectId);
+  }, FINISHED_TTL_MS);
+}
+
 export function startRun(projectId: number, projectPath: string): { ok: boolean; error?: string } {
   if (runs.has(projectId)) {
     const existing = runs.get(projectId)!;
@@ -109,13 +116,6 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
   child.stdout?.on('data', appendOutput);
   child.stderr?.on('data', appendOutput);
 
-function scheduleCleanup(projectId: number, info: RunInfo): void {
-  setTimeout(() => {
-    const current = runs.get(projectId);
-    if (current === info) runs.delete(projectId);
-  }, FINISHED_TTL_MS);
-}
-
   child.on('close', (code) => {
     info.exitCode = code;
     info.finished = true;
@@ -149,11 +149,7 @@ export function stopRun(projectId: number): boolean {
 
   info.finished = true;
   info.exitCode = -1;
-  // Keep around briefly so frontend sees the transition
-  setTimeout(() => {
-    const current = runs.get(projectId);
-    if (current === info) runs.delete(projectId);
-  }, FINISHED_TTL_MS);
+  scheduleCleanup(projectId, info);
 
   return true;
 }
