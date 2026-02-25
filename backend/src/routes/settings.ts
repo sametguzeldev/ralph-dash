@@ -8,7 +8,7 @@ export const settingsRouter = Router();
 settingsRouter.get('/', (_req, res) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('ralphPath') as { value: string } | undefined;
   const tokenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeToken') as { value: string } | undefined;
-  const isDocker = process.env.RALPH_DOCKER === 'true';
+  const isDocker = process.env.RALPH_DOCKER === 'true' || process.env.RALPH_DOCKER === '1';
 
   const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
 

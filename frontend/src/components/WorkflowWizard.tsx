@@ -832,21 +832,25 @@ function RunOutputLog({ projectId, running }: { projectId: number; running: bool
     sinceRef.current = 0;
   }, [projectId]);
 
-  // Reset when a new run starts
-  useEffect(() => {
-    if (running && !prevRunningRef.current) {
-      setLines([]);
-      sinceRef.current = 0;
-    }
-    prevRunningRef.current = running;
-  }, [running]);
-
   // Use useQuery for polling run output
   const { data, refetch } = useQuery({
     queryKey: ['run-output', projectId],
     queryFn: () => getRunOutput(projectId, sinceRef.current),
     refetchInterval: running ? 3000 : false,
   });
+
+  // Reset when a new run starts or final refetch when stops
+  useEffect(() => {
+    if (running && !prevRunningRef.current) {
+      setLines([]);
+      sinceRef.current = 0;
+    }
+    // Final refetch when run stops
+    if (!running && prevRunningRef.current) {
+      refetch();
+    }
+    prevRunningRef.current = running;
+  }, [running, refetch]);
 
   // Update lines from query data
   useEffect(() => {
@@ -857,13 +861,6 @@ function RunOutputLog({ projectId, running }: { projectId: number; running: bool
       }
     }
   }, [data]);
-
-  // Final refetch after running stops
-  useEffect(() => {
-    if (!running && prevRunningRef.current) {
-      refetch();
-    }
-  }, [running, refetch]);
 
   useEffect(() => {
     if (scrollRef.current) {
