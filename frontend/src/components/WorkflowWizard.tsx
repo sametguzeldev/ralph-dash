@@ -822,47 +822,35 @@ function SkillOutputLog({
 
 function RunOutputLog({ projectId, running }: { projectId: number; running: boolean }) {
   const [lines, setLines] = useState<string[]>([]);
-  const sinceRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevRunningRef = useRef(running);
+
+  // Clear output when projectId changes
+  useEffect(() => {
+    setLines([]);
+  }, [projectId]);
 
   // Reset when a new run starts
   useEffect(() => {
     if (running && !prevRunningRef.current) {
       setLines([]);
-      sinceRef.current = 0;
     }
     prevRunningRef.current = running;
   }, [running]);
 
-  // Poll for run output
+  // Use useQuery for polling run output
+  const { data } = useQuery({
+    queryKey: ['run-output', projectId],
+    queryFn: () => getRunOutput(projectId, 0),
+    refetchInterval: running ? 1000 : false,
+  });
+
+  // Update lines from query data
   useEffect(() => {
-    let active = true;
-
-    const fetchOutput = async () => {
-      try {
-        const data = await getRunOutput(projectId, sinceRef.current);
-        if (!active) return;
-        if (data.lines.length > 0) {
-          setLines(prev => [...prev, ...data.lines]);
-          sinceRef.current = data.total;
-        }
-      } catch {
-        // ignore fetch errors
-      }
-    };
-
-    fetchOutput();
-
-    if (running) {
-      const id = setInterval(fetchOutput, 1000);
-      return () => { active = false; clearInterval(id); };
+    if (data?.lines) {
+      setLines(data.lines);
     }
-
-    // One final fetch after the run finishes
-    const timeout = setTimeout(fetchOutput, 500);
-    return () => { active = false; clearTimeout(timeout); };
-  }, [running, projectId]);
+  }, [data]);
 
   useEffect(() => {
     if (scrollRef.current) {

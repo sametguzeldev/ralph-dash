@@ -142,12 +142,14 @@ export function Dashboard() {
         <button
           onClick={() => setTimelineCollapsed(!timelineCollapsed)}
           className="w-full flex items-center justify-between px-5 py-4 min-h-[44px] md:min-h-0 hover:bg-gray-800/30 transition-colors"
+          aria-expanded={!timelineCollapsed}
+          aria-controls="progress-timeline-panel"
         >
           <h3 className="text-lg font-semibold">Progress Timeline</h3>
           <span className="text-gray-500">{timelineCollapsed ? '▸' : '▾'}</span>
         </button>
         {!timelineCollapsed && (
-          <div className="px-5 pb-5">
+          <div id="progress-timeline-panel" className="px-5 pb-5">
             <ProgressTimeline progress={data.progress} />
           </div>
         )}

@@ -33,13 +33,18 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
     queryClient.invalidateQueries({ queryKey: ['workflow-file', projectId, filePath] });
   }, [queryClient, projectId, filePath]);
 
+  // Clear init guard when filePath/projectId changes
+  useEffect(() => {
+    isInitializedRef.current = false;
+  }, [projectId, filePath]);
+
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['workflow-file', projectId, filePath],
     queryFn: () => getWorkflowFile(projectId, filePath),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: 0,
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
 
   // Keep hasChangesRef in sync for use in effects without re-triggering them

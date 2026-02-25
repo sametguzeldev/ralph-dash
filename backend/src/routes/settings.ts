@@ -143,6 +143,9 @@ settingsRouter.delete('/claude-model', (_req, res) => {
 
 // Git config management (Docker only)
 settingsRouter.put('/git-config', (req, res) => {
+  if (!process.env.RALPH_DOCKER) {
+    return res.status(403).json({ error: 'Git config is only available in Docker mode' });
+  }
   const { name, email } = req.body;
 
   if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -163,6 +166,9 @@ settingsRouter.put('/git-config', (req, res) => {
 });
 
 settingsRouter.delete('/git-config', (_req, res) => {
+  if (!process.env.RALPH_DOCKER) {
+    return res.status(403).json({ error: 'Git config is only available in Docker mode' });
+  }
   db.prepare('DELETE FROM settings WHERE key = ?').run('gitUserName');
   db.prepare('DELETE FROM settings WHERE key = ?').run('gitUserEmail');
 

@@ -11,14 +11,14 @@ interface WizardStepIndicatorProps {
 
 export function WizardStepIndicator({ steps, activeStep, onStepClick }: WizardStepIndicatorProps) {
   const activeLabel = steps[activeStep]?.label ?? '';
+  const showSeparator = activeLabel.length > 0;
 
   return (
     <>
       {/* Mobile: simplified "Step N of 4 — Label" */}
       <div className="md:hidden text-sm text-gray-300">
         <span className="font-medium text-ralph-300">Step {activeStep + 1} of {steps.length}</span>
-        <span className="text-gray-500"> — </span>
-        <span>{activeLabel}</span>
+        {showSeparator && <><span className="text-gray-500"> — </span><span>{activeLabel}</span></>}
       </div>
 
       {/* Desktop: full horizontal step indicator */}
