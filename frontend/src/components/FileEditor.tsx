@@ -28,11 +28,6 @@ export function FileEditor({ projectId, filePath, fileType, onClose, onSaved }: 
   const [validation, setValidation] = useState<PrdJsonValidation | null>(null);
   const [error, setError] = useState('');
 
-  // Invalidate cache on mount so we always fetch fresh content
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['workflow-file', projectId, filePath] });
-  }, [queryClient, projectId, filePath]);
-
   // Full reset when projectId/filePath changes - destroy EditorView, reset refs and UI state
   useEffect(() => {
     viewRef.current?.destroy();
