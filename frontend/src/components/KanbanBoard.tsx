@@ -33,13 +33,13 @@ function TaskCard({ story }: { story: UserStoryWithStatus }) {
       <h4 className="text-sm font-medium text-gray-200">{story.title}</h4>
 
       {expanded && (
-        <div className="mt-3 space-y-2">
-          <p className="text-xs text-gray-400">{story.description}</p>
+        <div className="mt-3 space-y-2 overflow-hidden">
+          <p className="text-xs text-gray-400 break-words">{story.description}</p>
           <div>
             <p className="text-xs font-medium text-gray-300 mb-1">Acceptance Criteria:</p>
             <ul className="space-y-1">
               {story.acceptanceCriteria.map((ac, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-400 break-words min-w-0">
                   <span className={story.passes ? 'text-green-400' : 'text-gray-600'}>
                     {story.passes ? '✓' : '○'}
                   </span>
@@ -59,7 +59,7 @@ function TaskCard({ story }: { story: UserStoryWithStatus }) {
 
 export function KanbanBoard({ stories }: { stories: UserStoryWithStatus[] }) {
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {COLUMNS.map(col => {
         const colStories = stories
           .filter(s => s.status === col.key)
@@ -71,7 +71,7 @@ export function KanbanBoard({ stories }: { stories: UserStoryWithStatus[] }) {
               <h3 className="text-sm font-medium text-gray-300">{col.label}</h3>
               <span className="text-xs text-gray-500">{colStories.length}</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[50vh] md:max-h-none overflow-y-auto">
               {colStories.map(story => (
                 <TaskCard key={story.id} story={story} />
               ))}
