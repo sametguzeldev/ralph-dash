@@ -10,8 +10,15 @@ interface WizardStepIndicatorProps {
 }
 
 export function WizardStepIndicator({ steps, activeStep, onStepClick }: WizardStepIndicatorProps) {
-  const activeLabel = steps[activeStep]?.label ?? '';
+  const isEmpty = steps.length === 0;
+  const clampedStep = isEmpty ? 0 : Math.min(activeStep, steps.length - 1);
+  const activeLabel = steps[clampedStep]?.label ?? '';
   const showSeparator = activeLabel.length > 0;
+
+  // Guard against empty steps array
+  if (isEmpty) {
+    return null;
+  }
 
   return (
     <>
@@ -19,20 +26,20 @@ export function WizardStepIndicator({ steps, activeStep, onStepClick }: WizardSt
       <div className="md:hidden flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => onStepClick(activeStep - 1)}
-          disabled={activeStep === 0}
+          onClick={() => onStepClick(clampedStep - 1)}
+          disabled={clampedStep === 0}
           className="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
         >
           ‹ Prev
         </button>
         <span className="text-sm text-gray-300 text-center">
-          <span className="font-medium text-ralph-300">Step {activeStep + 1} of {steps.length}</span>
+          <span className="font-medium text-ralph-300">Step {clampedStep + 1} of {steps.length}</span>
           {showSeparator && <><span className="text-gray-500"> — </span><span>{activeLabel}</span></>}
         </span>
         <button
           type="button"
-          onClick={() => onStepClick(activeStep + 1)}
-          disabled={activeStep === steps.length - 1}
+          onClick={() => onStepClick(clampedStep + 1)}
+          disabled={clampedStep === steps.length - 1}
           className="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
         >
           Next ›
@@ -42,14 +49,14 @@ export function WizardStepIndicator({ steps, activeStep, onStepClick }: WizardSt
       {/* Desktop: full horizontal step indicator */}
       <div className="hidden md:flex items-center gap-1">
         {steps.map((step, i) => {
-          const isActive = i === activeStep;
+          const isActive = i === clampedStep;
           const isComplete = step.status === 'complete';
 
           return (
             <div key={i} className="flex items-center">
               {i > 0 && (
                 <div className={`w-8 h-px mx-1 ${
-                  isComplete || (i <= activeStep) ? 'bg-ralph-500/50' : 'bg-gray-700'
+                  isComplete || (i <= clampedStep) ? 'bg-ralph-500/50' : 'bg-gray-700'
                 }`} />
               )}
               <button
