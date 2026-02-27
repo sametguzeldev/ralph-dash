@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
+import { getProvider } from '../providers/registry.js';
 
 interface RunInfo {
   process: ChildProcess;
@@ -32,7 +33,39 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     runs.delete(projectId);
   }
 
-  const scriptPath = path.join(projectPath, 'scripts', 'ralph', 'ralph-cc.sh');
+  // Read project's assigned provider and model_variant from the projects table
+  const projectRow = db.prepare('SELECT provider, model_variant FROM projects WHERE id = ?').get(projectId) as
+    { provider: string | null; model_variant: string | null } | undefined;
+
+  if (!projectRow?.provider) {
+    console.error(`[processManager] Project ${projectId} has no provider assigned. Cannot start run.`);
+    return { ok: false, error: 'Project has no provider assigned. Configure a provider first.' };
+  }
+
+  // Get provider instance from registry
+  let provider;
+  try {
+    provider = getProvider(projectRow.provider);
+  } catch {
+    console.error(`[processManager] Unknown provider '${projectRow.provider}' for project ${projectId}`);
+    return { ok: false, error: `Unknown provider: ${projectRow.provider}` };
+  }
+
+  // Get provider row from DB for runner_script and config
+  const providerRow = db.prepare('SELECT runner_script, config FROM providers WHERE name = ?').get(projectRow.provider) as
+    { runner_script: string | null; config: string | null } | undefined;
+
+  if (!providerRow?.runner_script) {
+    console.error(`[processManager] Provider '${projectRow.provider}' has no runner_script configured`);
+    return { ok: false, error: `Provider '${projectRow.provider}' has no runner script configured.` };
+  }
+
+  // Build provider config from DB
+  const rawConfig = providerRow.config ? JSON.parse(providerRow.config) as Record<string, unknown> : {};
+  const providerConfig = provider.parseConfig(rawConfig);
+
+  // Use provider's runner_script instead of hardcoded ralph-cc.sh
+  const scriptPath = path.join(projectPath, 'scripts', 'ralph', providerRow.runner_script);
 
   // Check the script exists before attempting to spawn
   if (!fs.existsSync(scriptPath)) {
@@ -51,23 +84,20 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     }
   }
 
-  const cwd = projectPath;
-
-  // Build env: inject Claude auth token from DB (same as skillRunner)
+  // Build env: start with process env and remove CLAUDECODE
   const runEnv = { ...process.env };
   delete runEnv.CLAUDECODE;
-  if (!runEnv.ANTHROPIC_API_KEY && !runEnv.CLAUDE_CODE_OAUTH_TOKEN) {
-    const tokenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeToken') as { value: string } | undefined;
-    if (tokenRow?.value) {
-      if (tokenRow.value.startsWith('sk-ant-oat')) {
-        runEnv.CLAUDE_CODE_OAUTH_TOKEN = tokenRow.value;
-      } else if (tokenRow.value.startsWith('sk-ant-api')) {
-        runEnv.ANTHROPIC_API_KEY = tokenRow.value;
-      }
+
+  // Use provider abstraction to get env vars (replaces hardcoded Claude-specific logic)
+  const providerEnvVars = provider.getEnvVars(providerConfig, projectRow.model_variant ?? undefined);
+  for (const [key, value] of Object.entries(providerEnvVars)) {
+    // Guard: only inject if not already set in process env
+    if (!runEnv[key]) {
+      runEnv[key] = value;
     }
   }
 
-  // Inject git identity from DB if not already set in the environment
+  // Inject git identity from DB if not already set in the environment (not provider-specific)
   const nameRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserName') as { value: string } | undefined;
   const emailRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserEmail') as { value: string } | undefined;
   if (nameRow?.value && emailRow?.value) {
@@ -77,21 +107,11 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     if (!runEnv.GIT_COMMITTER_EMAIL) runEnv.GIT_COMMITTER_EMAIL = emailRow.value;
   }
 
-  // Inject Claude model preference from DB as fallback only when ANTHROPIC_MODEL is not already set
-  const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
-  if (modelRow?.value && !runEnv.ANTHROPIC_MODEL) {
-    runEnv.ANTHROPIC_MODEL = modelRow.value;
-  }
+  // Get CLI args from provider for injection into the spawned script
+  const cliArgs = provider.getCliArgs(providerConfig, projectRow.model_variant ?? undefined);
 
-  // Inject auto-memory disable flag when disabled in settings (guard: only if not already set)
-  const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
-  const autoMemoryEnabled = autoMemoryRow ? autoMemoryRow.value === 'true' : true;
-  if (!autoMemoryEnabled && !runEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY) {
-    runEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
-  }
-
-  const child = spawn('bash', [scriptPath], {
-    cwd,
+  const child = spawn('bash', [scriptPath, ...cliArgs], {
+    cwd: projectPath,
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: runEnv,
