@@ -1,79 +1,25 @@
 # Ralph Progress Log
-Started: Tue Feb 24 23:52:17 UTC 2026
+Started: Fri Feb 27 10:34:44 +04 2026
 ---
 
-## Codebase Patterns
-- No root-level package.json — run `npm run build` from `frontend/` and `backend/` separately
-- `scripts/ralph/` is gitignored — use `git add -f` for prd.json and progress.txt
-- Tailwind `md:` breakpoint is the responsive pivot point for mobile vs desktop
-- Sidebar props (sidebarOpen, onClose) are threaded through App.tsx for mobile drawer behavior
-- Sidebar renders two `<aside>` elements: desktop (hidden md:flex) and mobile drawer (fixed z-50 md:hidden) sharing SidebarContent
-- Mobile overlays use `pointer-events-none` + `opacity-0` when hidden, with CSS transitions for open/close
----
-
-## 2026-02-24 - US-001
-- What was implemented: Mobile header bar with hamburger toggle icon, visible below md breakpoint. Added sidebarOpen state to App.tsx, created MobileHeader component, updated Sidebar to accept sidebarOpen/onClose props and hide below md.
-- Files changed:
-  - `frontend/src/App.tsx` — added useState for sidebarOpen, renders MobileHeader + passes props to Sidebar
-  - `frontend/src/components/MobileHeader.tsx` — new component with fixed header, hamburger icon (44x44 touch target), RalphDash brand text
-  - `frontend/src/components/Sidebar.tsx` — accepts SidebarProps interface, `hidden md:flex` to hide on mobile
-  - `scripts/ralph/prd.json` — marked US-001 as passes: true
+## 2026-02-27 - US-002
+- Injected `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` into spawn env in `processManager.ts` when `autoMemoryEnabled` is false in DB
+- Used guard pattern: only inject if not already set in `runEnv` (same guard as other env vars in this file)
+- Reads `autoMemoryEnabled` from DB settings table; defaults to true when not set
+- Files changed: `backend/src/services/processManager.ts`
 - **Learnings for future iterations:**
-  - The sidebar currently accepts `sidebarOpen` and `onClose` props but doesn't use them yet — US-002 will wire those up for the slide-out drawer
-  - The MobileHeader uses `md:hidden` and Sidebar uses `hidden md:flex` for the responsive toggle
-  - Touch targets use `w-11 h-11` (44px) for accessibility
+  - The env injection block in processManager.ts follows a consistent pattern: read from DB, check guard condition, assign to `runEnv`
+  - Deserialization pattern: `autoMemoryRow ? autoMemoryRow.value === 'true' : true` (same as settings.ts)
+  - The guard check uses `!runEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY` (not `process.env`) since `runEnv` starts as a spread of `process.env`
 ---
 
-## 2026-02-24 - US-002
-- What was implemented: Sidebar now functions as a slide-out drawer on mobile. Tapping hamburger opens the drawer from the left with a bg-black/50 backdrop. Close via backdrop tap, close (x) button, nav link click, or Escape key. Desktop sidebar unchanged.
-- Files changed:
-  - `frontend/src/components/Sidebar.tsx` — extracted SidebarContent for reuse, added mobile drawer overlay with backdrop, close button, Escape handler, nav-link-closes behavior. Desktop aside unchanged.
-  - `scripts/ralph/prd.json` — marked US-002 as passes: true
+## 2026-02-27 - US-001
+- Added `autoMemoryEnabled` field to GET /api/settings (reads from DB, defaults to true)
+- Added PUT /api/settings/auto-memory to save boolean toggle to settings table
+- Added DELETE /api/settings/auto-memory to remove the setting from DB
+- Files changed: backend/src/routes/settings.ts
 - **Learnings for future iterations:**
-  - The Sidebar now renders two `<aside>` elements: desktop (hidden md:flex) and mobile drawer (fixed inset-0 z-50 md:hidden). This avoids complex conditional logic.
-  - SidebarContent is a shared internal component that accepts an optional `onLinkClick` callback for mobile close-on-navigate.
-  - The mobile drawer uses CSS transitions (opacity + translate-x) with pointer-events-none when closed, so the element stays mounted.
-  - Escape key listener is attached/detached based on `sidebarOpen` state to avoid unnecessary listeners.
----
-
-## 2026-02-24 - US-003
-- What was implemented: Main content area now adapts to mobile. Below md breakpoint, content takes full viewport width (no sidebar offset), has top padding to clear the fixed MobileHeader (h-14 = 3.5rem + 1rem padding = 4.5rem), and uses reduced p-4 padding. Above md, layout unchanged with p-6.
-- Files changed:
-  - `frontend/src/App.tsx` — changed `<main>` className from `p-6` to `pt-[4.5rem] px-4 pb-4 md:p-6`
-  - `scripts/ralph/prd.json` — marked US-003 as passes: true
-- **Learnings for future iterations:**
-  - The MobileHeader is `h-14` (3.5rem). Any content below it needs `pt-[4.5rem]` on mobile (header height + 1rem spacing).
-  - Use `md:p-6` shorthand to reset all padding at desktop breakpoint — CSS shorthand overrides individual longhands when it appears later in the stylesheet (Tailwind responsive variants come after base utilities).
-  - The sidebar uses `hidden md:flex`, so on mobile the `flex-1` main element already takes full width without needing explicit `w-full`.
----
-
-## 2026-02-25 00:02 - Parallel wave: US-004,US-005,US-006,US-007,US-008
-- Stories ran in parallel worktrees via `claude --worktree`
----
-
-## 2026-02-25 00:04 - US-009
-- What was implemented: File editor touch-optimized for mobile. Header close button now has 44x44px touch target (w-11 h-11). Footer buttons have increased padding on mobile (px-4 py-3) reverting to compact sizes at md breakpoint. File path hidden on mobile to prevent overflow. External change warning banner stacks vertically on mobile with larger tap targets for Dismiss/Reload buttons.
-- Files changed:
-  - `frontend/src/components/FileEditor.tsx` — close button gets w-11 h-11 flex centering; footer stacks vertically on mobile with hidden file path; footer buttons get px-4 py-3 on mobile, md:px-3 md:py-1.5 on desktop; warning banner stacks vertically on mobile with larger button sizing
-  - `scripts/ralph/prd.json` — marked US-009 as passes: true
-- **Learnings for future iterations:**
-  - FileEditor is a fixed inset-0 overlay (z-50), so it's already full-screen on mobile — no layout changes needed for the editor area itself
-  - The mobile-first approach for buttons: set mobile sizes as base classes (px-4 py-3) then override at md: breakpoint for desktop (md:px-3 md:py-1.5)
-  - Hiding the file path on mobile (`hidden md:block`) is simpler and cleaner than truncation since the file path is secondary info
-  - Warning banner uses flex-col on mobile + flex-row at md to prevent text+buttons from overflowing at 375px
----
-
-## 2026-02-25 00:08 - Parallel wave: US-010,US-011
-- Stories ran in parallel worktrees via `claude --worktree`
----
-
-## 2026-02-25 00:10 - US-012
-- What was implemented: Wizard content areas constrained on mobile. File selector dropdowns and input+button rows stack vertically below md breakpoint. Generated file lists (questions files, PRD files) have max-h-[300px] with overflow-y-auto on mobile, unrestricted on desktop. Skill output and run output logs use smaller height on mobile (h-36 vs h-48 on desktop).
-- Files changed:
-  - `frontend/src/components/WorkflowWizard.tsx` — QuestionsStep input+button row gets flex-col md:flex-row; questions file list gets max-h-[300px] overflow-y-auto md:max-h-none; PrdStep file selector gets flex-col md:flex-row md:items-center; PRD file list gets max-h-[300px] overflow-y-auto md:max-h-none; PrdJsonStep file selector gets flex-col md:flex-row md:items-center; SkillOutputLog and RunOutputLog get h-36 md:h-48
-  - `scripts/ralph/prd.json` — marked US-012 as passes: true
-- **Learnings for future iterations:**
-  - Use `max-h-[300px] overflow-y-auto md:max-h-none md:overflow-visible` pattern to constrain scrollable lists on mobile while keeping desktop unconstrained
-  - Output log components (SkillOutputLog, RunOutputLog) already have fixed heights with overflow — just adjust the height value responsively (h-36 md:h-48)
-  - The `flex-col md:flex-row` pattern is the standard way to stack inline elements vertically on mobile
+  - Settings are stored as string values in the key-value `settings` table; booleans must be serialized with `String()` and deserialized with `=== 'true'`
+  - The GET /api/settings handler pattern: query each key individually, build response object, return res.json
+  - isDocker guard for optional fields is only used for git-config fields
 ---
