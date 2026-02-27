@@ -68,7 +68,7 @@
         "Frontend typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     }

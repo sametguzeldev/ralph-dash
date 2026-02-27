@@ -2,6 +2,21 @@
 Started: Fri Feb 27 10:34:44 +04 2026
 ---
 
+## 2026-02-27 - US-004
+- Added `autoMemoryEnabled?: boolean` to `SettingsResponse` interface in `api.ts`
+- Added `saveAutoMemory` and `deleteAutoMemory` API functions in `api.ts`
+- Added auto-memory state and mutation to `Settings.tsx`
+- Added checkbox at bottom of Claude Model card with immediate save on toggle
+- On mutation error: reverts checkbox to previous state and shows error message
+- `useEffect` initializes checkbox from `data?.autoMemoryEnabled ?? true`
+- Files changed: `frontend/src/lib/api.ts`, `frontend/src/pages/Settings.tsx`
+- **Learnings for future iterations:**
+  - Immediate-save checkboxes: optimistically update state, revert in `onError`
+  - The `onError` callback receives `(err, variables)` — use `variables` to know what was attempted so you can revert
+  - `useEffect` guard `if (data !== undefined)` needed to avoid overwriting state before first load
+
+---
+
 ## 2026-02-27 - US-003
 - Injected `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` into spawn env in `skillRunner.ts` when `autoMemoryEnabled` is false in DB
 - Used guard pattern: only inject if not already set in `cleanEnv` (matching the pattern from processManager.ts)
