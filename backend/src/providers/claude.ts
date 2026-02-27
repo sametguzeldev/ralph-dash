@@ -59,6 +59,27 @@ export class ClaudeProvider implements Provider {
     };
   }
 
+  parseConfig(rawConfig: Record<string, unknown>): ProviderConfig {
+    const token = (rawConfig.claudeToken as string) || undefined;
+    let tokenType: 'oauth' | 'api-key' | undefined;
+
+    if (rawConfig.claudeTokenType === 'oauth' || rawConfig.claudeTokenType === 'api-key') {
+      tokenType = rawConfig.claudeTokenType;
+    } else if (token) {
+      tokenType = token.startsWith('sk-ant-oat') ? 'oauth' : 'api-key';
+    }
+
+    const autoMem = rawConfig.autoMemoryEnabled;
+    const autoMemoryEnabled = autoMem === undefined ? true : (autoMem === 'true' || autoMem === true);
+
+    return {
+      token,
+      tokenType,
+      model: (rawConfig.claudeModel as string) || undefined,
+      autoMemoryEnabled,
+    };
+  }
+
   getFilesToSync(ralphPath: string): { source: string; dest: string }[] {
     const files: { source: string; dest: string }[] = [];
 
