@@ -188,7 +188,7 @@ workflowRouter.post('/:id/workflow/skill/start', (req, res) => {
       featureDescription,
       questionsFile,
       prdFile,
-    });
+    }, project.provider ?? undefined, project.model_variant ?? undefined);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to start skill';
     return res.status(400).json({ error: message });
