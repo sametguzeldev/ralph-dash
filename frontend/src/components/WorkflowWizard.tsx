@@ -33,6 +33,7 @@ function useSelectedFile(files: string[]): [string, (v: string) => void] {
 interface WorkflowWizardProps {
   projectId: number;
   isRunning: boolean;
+  hasProvider: boolean;
   onStartRun: () => Promise<unknown>;
   onStopRun: () => Promise<unknown>;
 }
@@ -59,7 +60,7 @@ function stepStatuses(w: WorkflowStatus | undefined, isRunning: boolean) {
   }));
 }
 
-export function WorkflowWizard({ projectId, isRunning, onStartRun, onStopRun }: WorkflowWizardProps) {
+export function WorkflowWizard({ projectId, isRunning, hasProvider, onStartRun, onStopRun }: WorkflowWizardProps) {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(isMobile);
@@ -165,6 +166,7 @@ export function WorkflowWizard({ projectId, isRunning, onStartRun, onStopRun }: 
               <RunStep
                 projectId={projectId}
                 isRunning={isRunning}
+                hasProvider={hasProvider}
                 workflow={workflow}
                 onStartRun={onStartRun}
                 onStopRun={onStopRun}
@@ -585,19 +587,21 @@ function PrdJsonStep({
 function RunStep({
   projectId,
   isRunning,
+  hasProvider,
   workflow,
   onStartRun,
   onStopRun,
 }: {
   projectId: number;
   isRunning: boolean;
+  hasProvider: boolean;
   workflow: WorkflowStatus | undefined;
   onStartRun: () => Promise<unknown>;
   onStopRun: () => Promise<unknown>;
 }) {
   const hasPrdJson = workflow?.hasPrdJson ?? false;
   const prdJsonValid = workflow?.prdJsonValid ?? false;
-  const canRun = hasPrdJson && prdJsonValid && !isRunning;
+  const canRun = hasPrdJson && prdJsonValid && hasProvider && !isRunning;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -650,6 +654,12 @@ function RunStep({
       {hasPrdJson && !prdJsonValid && (
         <p className="text-xs text-amber-400">
           prd.json has validation errors. Go back to step 3 to fix them.
+        </p>
+      )}
+
+      {!hasProvider && (
+        <p className="text-xs text-amber-400">
+          No model provider assigned. Select a provider at the top of the page to start runs.
         </p>
       )}
 
