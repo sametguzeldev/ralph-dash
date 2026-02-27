@@ -176,6 +176,13 @@ export function startSkill(
     cliArgs.push('--model', modelRow.value);
   }
 
+  // Inject auto-memory disable flag when disabled in settings (guard: only if not already set in cleanEnv)
+  const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
+  const autoMemoryEnabled = autoMemoryRow ? autoMemoryRow.value === 'true' : true;
+  if (!autoMemoryEnabled && !cleanEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY) {
+    cleanEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
+  }
+
   const child = spawn('claude', cliArgs, {
     cwd: projectPath,
     detached: true,
