@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProjectStatus, startRun, stopRun, syncProjectFiles } from '../lib/api';
+import { getProjectStatus, startRun, stopRun, syncProjectFiles, getModels, saveProjectProvider, saveProjectModelVariant } from '../lib/api';
+import type { ProviderResponse } from '../lib/api';
 import { KanbanBoard } from '../components/KanbanBoard';
 import { ProgressTimeline } from '../components/ProgressTimeline';
 import { LogViewer } from '../components/LogViewer';
@@ -29,6 +30,21 @@ export function Dashboard() {
 
   const stopMutation = useMutation({
     mutationFn: () => stopRun(projectId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
+  });
+
+  const { data: providers } = useQuery({
+    queryKey: ['models'],
+    queryFn: getModels,
+  });
+
+  const providerMutation = useMutation({
+    mutationFn: (provider: string) => saveProjectProvider(projectId, provider),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
+  });
+
+  const modelVariantMutation = useMutation({
+    mutationFn: (variant: string) => saveProjectModelVariant(projectId, variant),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
   });
 
@@ -66,6 +82,19 @@ export function Dashboard() {
 
   const isRunning = data.runStatus === 'running';
 
+  // Find the selected provider's config to get model variants
+  const selectedProvider: ProviderResponse | undefined = providers?.find(
+    (p) => p.name === data.project.provider
+  );
+  const modelVariants: string[] = selectedProvider?.config?.modelVariants as string[] ?? [];
+
+  function formatVariantLabel(variant: string): string {
+    if (variant.includes('opus')) return 'Opus';
+    if (variant.includes('sonnet')) return 'Sonnet';
+    if (variant.includes('haiku')) return 'Haiku';
+    return variant;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -93,6 +122,47 @@ export function Dashboard() {
           )}
           {data.prd?.description && (
             <p className="text-sm text-gray-400 mt-2">{data.prd.description}</p>
+          )}
+
+          {/* Provider & Model Variant Selectors */}
+          {providers && providers.length > 0 && (
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-gray-500">Provider</label>
+                <select
+                  value={data.project.provider ?? ''}
+                  onChange={(e) => providerMutation.mutate(e.target.value)}
+                  disabled={providerMutation.isPending}
+                  className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2 py-1 focus:outline-none focus:border-ralph-500"
+                >
+                  <option value="" disabled>Select...</option>
+                  {providers.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name.charAt(0).toUpperCase() + p.name.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {data.project.provider && modelVariants.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-gray-500">Model</label>
+                  <select
+                    value={data.project.model_variant ?? ''}
+                    onChange={(e) => modelVariantMutation.mutate(e.target.value)}
+                    disabled={modelVariantMutation.isPending}
+                    className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2 py-1 focus:outline-none focus:border-ralph-500"
+                  >
+                    <option value="" disabled>Select...</option>
+                    {modelVariants.map((v) => (
+                      <option key={v} value={v}>
+                        {formatVariantLabel(v)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
