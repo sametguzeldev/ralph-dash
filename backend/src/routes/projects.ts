@@ -15,6 +15,8 @@ interface ProjectRow {
   name: string;
   path: string;
   created_at: string;
+  provider: string | null;
+  model_variant: string | null;
 }
 
 projectsRouter.get('/', (_req, res) => {

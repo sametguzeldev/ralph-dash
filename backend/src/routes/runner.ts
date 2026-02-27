@@ -8,6 +8,8 @@ interface ProjectRow {
   id: number;
   name: string;
   path: string;
+  provider: string | null;
+  model_variant: string | null;
 }
 
 runnerRouter.post('/:id/run/start', (req, res) => {

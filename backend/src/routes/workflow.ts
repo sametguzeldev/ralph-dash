@@ -11,6 +11,8 @@ interface ProjectRow {
   id: number;
   name: string;
   path: string;
+  provider: string | null;
+  model_variant: string | null;
 }
 
 // Allowed paths for security: entries ending with '/' are directory prefixes, others are exact matches
