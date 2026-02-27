@@ -83,6 +83,13 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     runEnv.ANTHROPIC_MODEL = modelRow.value;
   }
 
+  // Inject auto-memory disable flag when disabled in settings (guard: only if not already set)
+  const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
+  const autoMemoryEnabled = autoMemoryRow ? autoMemoryRow.value === 'true' : true;
+  if (!autoMemoryEnabled && !runEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY) {
+    runEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
+  }
+
   const child = spawn('bash', [scriptPath], {
     cwd,
     detached: true,
