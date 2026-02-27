@@ -2,6 +2,8 @@ import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
+import { getProvider } from '../providers/registry.js';
+import type { ProviderConfig } from '../providers/types.js';
 
 export type SkillName = 'prd-questions' | 'prd' | 'ralph';
 
@@ -17,6 +19,30 @@ interface SkillRun {
 }
 
 const MAX_OUTPUT_LINES = 500;
+
+/**
+ * Load ProviderConfig from the providers table for the given provider name.
+ * Falls back to sensible defaults if the provider row or config is missing.
+ */
+function loadProviderConfig(providerName: string): ProviderConfig {
+  const row = db.prepare('SELECT config FROM providers WHERE name = ?').get(providerName) as { config: string } | undefined;
+  if (!row?.config) {
+    return { autoMemoryEnabled: true };
+  }
+
+  try {
+    const raw = JSON.parse(row.config) as Record<string, unknown>;
+    return {
+      token: (raw.claudeToken as string) ?? undefined,
+      tokenType: raw.claudeTokenType === 'oauth' ? 'oauth' : raw.claudeTokenType === 'api-key' ? 'api-key' : undefined,
+      model: (raw.claudeModel as string) ?? undefined,
+      autoMemoryEnabled: raw.autoMemoryEnabled !== undefined ? raw.autoMemoryEnabled === 'true' || raw.autoMemoryEnabled === true : true,
+    };
+  } catch {
+    return { autoMemoryEnabled: true };
+  }
+}
+
 const skillRuns = new Map<number, SkillRun>();
 
 function readSkillFile(projectPath: string, skill: SkillName): string {
@@ -126,6 +152,8 @@ export function startSkill(
     questionsFile?: string;
     prdFile?: string;
   },
+  providerName?: string,
+  modelVariant?: string,
 ): boolean {
   if (skillRuns.has(projectId)) return false;
 
@@ -136,17 +164,16 @@ export function startSkill(
   const cleanEnv = { ...process.env };
   delete cleanEnv.CLAUDECODE;
 
-  // Inject Claude authentication token from DB (only if not already in env)
-  if (!cleanEnv.ANTHROPIC_API_KEY && !cleanEnv.CLAUDE_CODE_OAUTH_TOKEN) {
-    const tokenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeToken') as { value: string } | undefined;
-    if (tokenRow?.value) {
-      if (tokenRow.value.startsWith('sk-ant-oat')) {
-        cleanEnv.CLAUDE_CODE_OAUTH_TOKEN = tokenRow.value;
-      } else if (tokenRow.value.startsWith('sk-ant-api')) {
-        cleanEnv.ANTHROPIC_API_KEY = tokenRow.value;
-      } else {
-        console.warn(`[skillRunner] Stored Claude token has unrecognized prefix, skipping injection`);
-      }
+  // Build provider config and inject env vars / CLI args via the provider abstraction
+  const effectiveProvider = providerName || 'claude';
+  const provider = getProvider(effectiveProvider);
+  const providerConfig = loadProviderConfig(effectiveProvider);
+
+  // Inject provider env vars (auth token, model, auto-memory flag) with guard: skip vars already set
+  const providerEnv = provider.getEnvVars(providerConfig, modelVariant ?? undefined);
+  for (const [key, value] of Object.entries(providerEnv)) {
+    if (!cleanEnv[key]) {
+      cleanEnv[key] = value;
     }
   }
 
@@ -162,26 +189,15 @@ export function startSkill(
     }
   }
 
-  // Build CLI args, optionally injecting --model from settings
+  // Build CLI args: base args + provider-specific args (e.g. --model)
   const cliArgs = [
     '-p', prompt,
     '--append-system-prompt', skillContent,
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--verbose',
+    ...provider.getCliArgs(providerConfig, modelVariant ?? undefined),
   ];
-
-  const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
-  if (modelRow?.value) {
-    cliArgs.push('--model', modelRow.value);
-  }
-
-  // Inject auto-memory disable flag when disabled in settings (guard: only if not already set in cleanEnv)
-  const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
-  const autoMemoryEnabled = autoMemoryRow ? autoMemoryRow.value === 'true' : true;
-  if (!autoMemoryEnabled && !cleanEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY) {
-    cleanEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
-  }
 
   const child = spawn('claude', cliArgs, {
     cwd: projectPath,
