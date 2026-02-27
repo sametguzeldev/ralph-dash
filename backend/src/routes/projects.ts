@@ -65,7 +65,8 @@ projectsRouter.post('/', (req, res) => {
   try {
     const result = db.prepare('INSERT INTO projects (name, path) VALUES (?, ?)').run(name, expandedPath);
     try {
-      copyRalphFiles(settingsRow.value, expandedPath);
+      const inserted = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as ProjectRow;
+      copyRalphFiles(settingsRow.value, expandedPath, inserted.provider ?? 'claude');
     } catch (copyErr: unknown) {
       db.prepare('DELETE FROM projects WHERE id = ?').run(result.lastInsertRowid);
       const message = copyErr instanceof Error ? copyErr.message : 'Unknown error';
@@ -117,7 +118,7 @@ projectsRouter.post('/:id/sync', (req, res) => {
   }
 
   try {
-    copyRalphFiles(settingsRow.value, project.path);
+    copyRalphFiles(settingsRow.value, project.path, project.provider ?? 'claude');
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
