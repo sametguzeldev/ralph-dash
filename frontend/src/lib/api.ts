@@ -21,6 +21,7 @@ export interface SettingsResponse {
   gitConfigured?: boolean;
   gitUserName?: string | null;
   gitUserEmail?: string | null;
+  autoMemoryEnabled?: boolean;
 }
 
 export function getSettings() {
@@ -56,6 +57,19 @@ export function saveClaudeModel(model: string) {
 
 export function deleteClaudeModel() {
   return request<{ success: boolean }>('/settings/claude-model', {
+    method: 'DELETE',
+  });
+}
+
+export function saveAutoMemory(autoMemoryEnabled: boolean) {
+  return request<{ success: boolean; autoMemoryEnabled: boolean }>('/settings/auto-memory', {
+    method: 'PUT',
+    body: JSON.stringify({ autoMemoryEnabled }),
+  });
+}
+
+export function deleteAutoMemory() {
+  return request<{ success: boolean }>('/settings/auto-memory', {
     method: 'DELETE',
   });
 }
