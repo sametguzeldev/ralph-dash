@@ -2,6 +2,17 @@
 Started: Fri Feb 27 10:34:44 +04 2026
 ---
 
+## 2026-02-27 - US-003
+- Injected `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` into spawn env in `skillRunner.ts` when `autoMemoryEnabled` is false in DB
+- Used guard pattern: only inject if not already set in `cleanEnv` (matching the pattern from processManager.ts)
+- Reads `autoMemoryEnabled` from DB settings table; defaults to true when not set
+- Files changed: `backend/src/services/skillRunner.ts`
+- **Learnings for future iterations:**
+  - skillRunner.ts uses `cleanEnv` (vs `runEnv` in processManager.ts) — same guard pattern applies
+  - Injection block goes after model injection, before `spawn()` call
+  - Frontend rollup native module (`@rollup/rollup-darwin-arm64`) is missing — use `tsc -b --noEmit` directly instead of `npm run build` for frontend typecheck
+---
+
 ## 2026-02-27 - US-002
 - Injected `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` into spawn env in `processManager.ts` when `autoMemoryEnabled` is false in DB
 - Used guard pattern: only inject if not already set in `runEnv` (same guard as other env vars in this file)

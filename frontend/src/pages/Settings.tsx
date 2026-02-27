@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSettings, updateSettings, saveClaudeToken, deleteClaudeToken, saveClaudeModel, deleteClaudeModel, saveGitConfig, deleteGitConfig } from '../lib/api';
+import { getSettings, updateSettings, saveClaudeToken, deleteClaudeToken, saveClaudeModel, deleteClaudeModel, saveGitConfig, deleteGitConfig, saveAutoMemory } from '../lib/api';
 
 export function Settings() {
   const queryClient = useQueryClient();
@@ -17,6 +17,10 @@ export function Settings() {
   const [customModel, setCustomModel] = useState('');
   const [modelMessage, setModelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Auto-memory state
+  const [autoMemoryEnabled, setAutoMemoryEnabled] = useState(true);
+  const [autoMemoryMessage, setAutoMemoryMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Git config state
   const [gitName, setGitName] = useState('');
   const [gitEmail, setGitEmail] = useState('');
@@ -29,6 +33,7 @@ export function Settings() {
 
   useEffect(() => {
     if (data?.ralphPath) setRalphPath(data.ralphPath);
+    if (data !== undefined) setAutoMemoryEnabled(data?.autoMemoryEnabled ?? true);
   }, [data]);
 
   const mutation = useMutation({
@@ -88,6 +93,18 @@ export function Settings() {
     },
     onError: (err: Error) => {
       setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const autoMemoryMutation = useMutation({
+    mutationFn: (enabled: boolean) => saveAutoMemory(enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: (err: Error, enabled: boolean) => {
+      // Revert the checkbox on failure
+      setAutoMemoryEnabled(!enabled);
+      setAutoMemoryMessage({ type: 'error', text: err.message });
     },
   });
 
@@ -284,6 +301,35 @@ export function Settings() {
             {modelMessage.text}
           </p>
         )}
+
+        <div className="mt-6 border-t border-gray-800 pt-4">
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={autoMemoryEnabled}
+              onChange={e => {
+                const next = e.target.checked;
+                setAutoMemoryEnabled(next);
+                setAutoMemoryMessage(null);
+                autoMemoryMutation.mutate(next);
+              }}
+              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-ralph-600 focus:ring-ralph-500 focus:ring-offset-gray-900 cursor-pointer"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-300 group-hover:text-gray-100 transition-colors">
+                Enable auto memory
+              </span>
+              <p className="text-xs text-gray-500 mt-0.5">
+                When enabled, Claude will remember project patterns and learnings across sessions
+              </p>
+            </div>
+          </label>
+          {autoMemoryMessage && (
+            <p className={`mt-2 text-sm ${autoMemoryMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {autoMemoryMessage.text}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Git Configuration — only shown for Docker users */}
