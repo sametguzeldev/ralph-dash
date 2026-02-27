@@ -19,7 +19,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends git jq && rm -rf /var/lib/apt/lists/*
 
 # Install Claude Code
-RUN npm install -g @anthropic-ai/claude-code@2.1.50
+RUN npm install -g @anthropic-ai/claude-code@latest
 
 # Create directory for Claude config and credentials
 RUN mkdir -p /home/node/.claude && chown -R node:node /home/node
