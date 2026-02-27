@@ -192,7 +192,7 @@ export interface ProgressData {
 }
 
 export interface ProjectStatus {
-  project: { id: number; name: string; path: string };
+  project: { id: number; name: string; path: string; provider: string | null; model_variant: string | null };
   prd: PrdDataWithStatus | null;
   progress: ProgressData | null;
   branch: string | null;
