@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from './components/Sidebar';
 import { MobileHeader } from './components/MobileHeader';
 import { Settings } from './pages/Settings';
+import { Models } from './pages/Models';
 import { Projects } from './pages/Projects';
 import { Dashboard } from './pages/Dashboard';
 
@@ -29,6 +30,7 @@ export function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/projects" replace />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/models" element={<Models />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<Dashboard />} />
             </Routes>
