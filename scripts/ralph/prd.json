@@ -1,21 +1,20 @@
 {
   "project": "RalphDash",
-  "branchName": "develop",
-  "description": "Auto Memory Toggle - Add settings toggle to enable/disable Claude's auto-memory feature when running skills in ralph-dash",
-  "qualityChecks": {
-    "compile": "cd backend && npm run build && cd ../frontend && npm run build"
-  },
+  "branchName": "ralph/models-section",
+  "description": "Models Section - Provider abstraction with dedicated Models page replacing Claude-specific settings",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Backend API for auto-memory setting",
-      "description": "Add backend endpoints to store and retrieve the auto-memory toggle setting in the database",
+      "title": "Create providers database table and migration",
+      "description": "As a developer, I need a new providers table to store provider configurations so that settings are namespaced per provider and extensible.",
       "acceptanceCriteria": [
-        "GET /api/settings returns autoMemoryEnabled field (boolean, default true)",
-        "PUT /api/settings/auto-memory accepts { autoMemoryEnabled: boolean } and saves to DB",
-        "DELETE /api/settings/auto-memory removes the setting from DB",
-        "When not set in DB, default to enabled (true)",
-        "Backend typecheck passes"
+        "New `providers` table in backend/src/db/schema.ts with columns: id (INTEGER PRIMARY KEY), name (TEXT UNIQUE NOT NULL), runner_script (TEXT), is_configured (INTEGER DEFAULT 0), config (TEXT) for JSON",
+        "Add `provider` (TEXT, nullable) and `model_variant` (TEXT, nullable) columns to the projects table",
+        "Auto-migration on startup: reads claudeToken, claudeTokenType, claudeModel, autoMemoryEnabled from settings table, inserts 'claude' row into providers with migrated values, deletes old settings rows",
+        "During migration, all existing projects get provider='claude' and model_variant set to migrated claudeModel value (or provider default)",
+        "Migration is idempotent — re-running when data is already migrated does not duplicate or corrupt data",
+        "Seed Claude provider with runner_script='ralph-cc.sh' and config JSON containing modelVariants: ['claude-sonnet-4-5-20250514', 'claude-opus-4-5-20250514', 'claude-haiku-4-5-20251001'], defaultVariant: 'claude-sonnet-4-5-20250514'",
+        "Typecheck passes (`npm run build` in backend/)"
       ],
       "priority": 1,
       "passes": true,
@@ -24,14 +23,36 @@
     },
     {
       "id": "US-002",
-      "title": "processManager.ts env injection",
-      "description": "Inject CLAUDE_CODE_DISABLE_AUTO_MEMORY environment variable when spawning Ralph runs",
+      "title": "Create provider abstraction interface and Claude provider",
+      "description": "As a developer, I need a provider abstraction so that services can interact with any provider through a consistent interface.",
       "acceptanceCriteria": [
-        "Read autoMemoryEnabled from DB settings table",
-        "Inject CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 when disabled",
-        "Use guard pattern: only inject if not already set in process env",
-        "Inject into processManager.ts spawn calls",
-        "Backend typecheck passes"
+        "Create backend/src/providers/types.ts with Provider interface: name, getEnvVars(config, modelVariant): Record<string, string>, getCliArgs(config, modelVariant): string[], getModelVariants(): string[], getAuthConfig(): { tokenType: string, tokenValue: string }, getFilesToSync(ralphPath: string): { source: string, dest: string }[]",
+        "Create backend/src/providers/claude.ts implementing Provider for Claude — returns correct env vars (ANTHROPIC_MODEL, CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY, CLAUDE_CODE_DISABLE_AUTO_MEMORY), CLI args (--model), model variants list, file sync paths",
+        "Create backend/src/providers/registry.ts with factory/registry: getProvider('claude') returns Claude instance",
+        "Typecheck passes (`npm run build` in backend/)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create /api/models backend routes",
+      "description": "As a developer, I need new API routes under /api/models so the frontend can manage provider configurations through a clean, provider-namespaced API.",
+      "acceptanceCriteria": [
+        "Create backend/src/routes/models.ts with Express Router",
+        "GET /api/models — returns list of all providers (id, name, runner_script, is_configured, parsed config JSON)",
+        "GET /api/models/:provider — returns single provider's full configuration",
+        "PUT /api/models/:provider/token — saves auth token (validates Claude format: must start with sk-ant-oat or sk-ant-api), updates is_configured, writes OAuth tokens to ~/.claude.json",
+        "DELETE /api/models/:provider/token — removes auth token, sets is_configured=0, for OAuth sets hasCompletedOnboarding: false in ~/.claude.json",
+        "PUT /api/models/:provider/model — saves selected model variant",
+        "DELETE /api/models/:provider/model — resets model variant to provider default",
+        "PUT /api/models/:provider/preferences — saves provider-specific behavioral preferences in config JSON",
+        "Register router in backend/src/index.ts at /api/models",
+        "Remove Claude-specific routes from backend/src/routes/settings.ts: claude-token (PUT/DELETE), claude-model (PUT/DELETE), auto-memory (PUT/DELETE)",
+        "Update GET /api/settings response to remove claudeConfigured, claudeModel, autoMemoryEnabled fields",
+        "Typecheck passes (`npm run build` in backend/)"
       ],
       "priority": 2,
       "passes": true,
@@ -39,15 +60,69 @@
       "notes": ""
     },
     {
-      "id": "US-003",
-      "title": "skillRunner.ts env injection",
-      "description": "Inject CLAUDE_CODE_DISABLE_AUTO_MEMORY environment variable when spawning Claude for skill runs",
+      "id": "US-004",
+      "title": "Refactor processManager to use provider abstraction",
+      "description": "As a developer, I need the process manager to use the provider abstraction so that spawning runs works with any configured provider.",
       "acceptanceCriteria": [
-        "Read autoMemoryEnabled from DB settings table",
-        "Inject CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 when disabled",
-        "Use guard pattern: only inject if not already set in cleanEnv",
-        "Inject into skillRunner.ts spawn calls",
-        "Backend typecheck passes"
+        "processManager.ts reads project's assigned provider and model_variant from projects table when starting a run",
+        "Uses provider registry to get correct provider instance",
+        "Calls provider.getEnvVars(config, modelVariant) to build environment variables instead of hardcoding Claude-specific env var names",
+        "Calls provider.getCliArgs(config, modelVariant) for CLI argument injection",
+        "Uses provider.runner_script from providers table to determine which script to spawn instead of hardcoding ralph-cc.sh",
+        "Git identity injection remains unchanged (not provider-specific)",
+        "Falls back gracefully if project has no provider assigned (logs error, does not crash)",
+        "Typecheck passes (`npm run build` in backend/)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Refactor skillRunner to use provider abstraction",
+      "description": "As a developer, I need the skill runner to use the provider abstraction so that skill execution uses the correct provider's settings.",
+      "acceptanceCriteria": [
+        "skillRunner.ts accepts a project ID or provider name to determine which provider to use",
+        "Uses provider registry to get correct provider instance",
+        "Calls provider.getEnvVars(config, modelVariant) for environment variable injection",
+        "Calls provider.getCliArgs(config, modelVariant) for CLI argument building",
+        "Git identity injection remains unchanged",
+        "Typecheck passes (`npm run build` in backend/)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Refactor fileCopier to use provider abstraction",
+      "description": "As a developer, I need the file copier to use the provider abstraction so that each provider defines what files get synced.",
+      "acceptanceCriteria": [
+        "fileCopier.ts accepts a provider name parameter when syncing files to a project",
+        "Calls provider.getFilesToSync(ralphPath) to get source/destination file paths instead of hardcoding SKILLS_TO_COPY and SCRIPTS_TO_COPY",
+        "Claude provider returns the same files currently synced: skill files (prd, prd-questions, ralph) and scripts (ralph-cc.sh, CLAUDE.md)",
+        "Executable permission (chmod 755) still applied to .sh files",
+        "Typecheck passes (`npm run build` in backend/)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Update frontend API layer for models",
+      "description": "As a developer, I need the frontend API layer updated to call the new /api/models endpoints instead of the old /api/settings/claude-* endpoints.",
+      "acceptanceCriteria": [
+        "New API functions in frontend/src/lib/api.ts: getModels(), getProvider(name), saveProviderToken(provider, token), deleteProviderToken(provider), saveProviderModel(provider, model), deleteProviderModel(provider), saveProviderPreferences(provider, prefs)",
+        "New API functions for per-project provider: saveProjectProvider(projectId, provider), saveProjectModelVariant(projectId, variant)",
+        "New TypeScript interfaces: ProviderResponse (id, name, runner_script, is_configured, config), ModelsResponse (array of providers)",
+        "Remove old Claude-specific API functions: saveClaudeToken, deleteClaudeToken, saveClaudeModel, deleteClaudeModel, saveAutoMemory, deleteAutoMemory",
+        "Update ProjectSummary interface to include provider: string | null and model_variant: string | null",
+        "Update SettingsResponse interface to remove claudeConfigured, claudeModel, autoMemoryEnabled fields",
+        "Typecheck passes (`npm run build` in frontend/)"
       ],
       "priority": 3,
       "passes": true,
@@ -55,20 +130,92 @@
       "notes": ""
     },
     {
-      "id": "US-004",
-      "title": "Settings UI checkbox",
-      "description": "Add checkbox in Settings page to toggle auto-memory on/off",
+      "id": "US-008",
+      "title": "Create Models page with tabbed layout and Claude tab",
+      "description": "As a user, I want a dedicated Models page with a tabbed interface so I can configure my AI provider settings in one place.",
       "acceptanceCriteria": [
-        "Checkbox appears at bottom of Claude Model card",
-        "Label: 'Enable auto memory'",
-        "Description: 'When enabled, Claude will remember project patterns and learnings across sessions'",
-        "Saves immediately on toggle (no Save button)",
-        "On save failure: revert checkbox and show error message",
-        "Display current state from GET /api/settings",
-        "Frontend typecheck passes"
+        "New page component at frontend/src/pages/Models.tsx",
+        "Page title 'Models' with consistent styling matching Settings page header",
+        "Tab bar with single 'Claude' tab (establishes pattern for future providers)",
+        "Claude tab has three sections: (1) Authentication — token input with show/hide toggle and save/delete buttons, 'Configured' badge when token is set; (2) Model Selection — dropdown with presets (Sonnet, Opus, Haiku) and custom model ID option; (3) Preferences — auto-memory toggle checkbox",
+        "All functionality matches current Settings page behavior (same validation, same success/error messages)",
+        "Uses React Query to fetch from GET /api/models/claude and mutations for PUT/DELETE endpoints",
+        "Route added in App.tsx: /models renders <Models />",
+        "Typecheck passes (`npm run build` in frontend/)",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Remove Claude settings from Settings page",
+      "description": "As a user, I want the Settings page to only show non-provider settings so there's no confusion about where to configure AI models.",
+      "acceptanceCriteria": [
+        "Settings page no longer shows: Claude Model selection, Claude Authentication, Auto-Memory toggle",
+        "Settings page retains: Ralph Installation Path, Git Configuration (Docker-only)",
+        "No broken references or dead code left behind in Settings.tsx",
+        "Typecheck passes (`npm run build` in frontend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add per-project provider and model variant selection to Kanban page",
+      "description": "As a user, I want to assign a specific AI provider and model variant to each project so different projects can use different models.",
+      "acceptanceCriteria": [
+        "Project Kanban page header shows a provider dropdown and a model variant dropdown",
+        "Provider dropdown lists all configured providers from GET /api/models",
+        "Model variant dropdown options change based on selected provider (selecting Claude shows Sonnet/Opus/Haiku)",
+        "Selecting a provider saves immediately via PUT /api/projects/:id/provider",
+        "Selecting a model variant saves immediately via PUT /api/projects/:id/model-variant",
+        "When provider is changed, model variant resets to that provider's default",
+        "Backend routes added: PUT /api/projects/:id/provider and PUT /api/projects/:id/model-variant",
+        "Typecheck passes (`npm run build` in frontend/ and backend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add Models to sidebar navigation",
+      "description": "As a user, I want to see 'Models' in the sidebar so I can navigate to the new section easily.",
+      "acceptanceCriteria": [
+        "'Models' nav link appears between 'Projects' and 'Settings' in the sidebar",
+        "Uses a brain/AI SVG icon consistent with existing icon style (stroke-based, 20x20)",
+        "Active state uses bg-ralph-600/20 text-ralph-300 styling (same as other nav items)",
+        "Works on both desktop sidebar and mobile drawer",
+        "Typecheck passes (`npm run build` in frontend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Show no-provider banner and block runs for unassigned projects",
+      "description": "As a user, I want to see a clear message when a project has no provider assigned, and runs should be blocked until one is selected.",
+      "acceptanceCriteria": [
+        "When project has no provider assigned (provider is null), prominent banner at top of Kanban page: 'No model provider assigned — select one to start runs' with inline provider dropdown",
+        "Start Run button is disabled when no provider is assigned",
+        "After selecting provider from banner dropdown, banner disappears and run button becomes enabled",
+        "Backend POST /api/runner/start returns 400 if project has no provider assigned",
+        "Typecheck passes (`npm run build` in frontend/ and backend/)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
       "inProgress": false,
       "notes": ""
     }
