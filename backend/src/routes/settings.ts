@@ -11,12 +11,14 @@ settingsRouter.get('/', (_req, res) => {
   const isDocker = process.env.RALPH_DOCKER === 'true' || process.env.RALPH_DOCKER === '1';
 
   const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
+  const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
 
   const response: Record<string, unknown> = {
     ralphPath: row?.value || null,
     isDocker,
     claudeConfigured: !!tokenRow?.value,
     claudeModel: modelRow?.value || null,
+    autoMemoryEnabled: autoMemoryRow ? autoMemoryRow.value === 'true' : true,
   };
 
   if (isDocker) {
@@ -174,5 +176,23 @@ settingsRouter.delete('/git-config', (_req, res) => {
   db.prepare('DELETE FROM settings WHERE key = ?').run('gitUserName');
   db.prepare('DELETE FROM settings WHERE key = ?').run('gitUserEmail');
 
+  res.json({ success: true });
+});
+
+// Auto-memory toggle
+settingsRouter.put('/auto-memory', (req, res) => {
+  const { autoMemoryEnabled } = req.body;
+
+  if (typeof autoMemoryEnabled !== 'boolean') {
+    return res.status(400).json({ error: 'autoMemoryEnabled must be a boolean' });
+  }
+
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('autoMemoryEnabled', String(autoMemoryEnabled));
+
+  res.json({ success: true, autoMemoryEnabled });
+});
+
+settingsRouter.delete('/auto-memory', (_req, res) => {
+  db.prepare('DELETE FROM settings WHERE key = ?').run('autoMemoryEnabled');
   res.json({ success: true });
 });
