@@ -81,6 +81,7 @@ export function Dashboard() {
   }
 
   const isRunning = data.runStatus === 'running';
+  const hasProvider = !!data.project.provider;
 
   // Find the selected provider's config to get model variants
   const selectedProvider: ProviderResponse | undefined = providers?.find(
@@ -193,10 +194,36 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* No-provider banner */}
+      {!hasProvider && providers && providers.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <svg className="w-5 h-5 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm text-amber-200">No model provider assigned &mdash; select one to start runs</span>
+          </div>
+          <select
+            value=""
+            onChange={(e) => providerMutation.mutate(e.target.value)}
+            disabled={providerMutation.isPending}
+            className="bg-gray-800 border border-amber-500/40 text-sm text-gray-200 rounded px-3 py-1.5 focus:outline-none focus:border-amber-400 sm:ml-auto"
+          >
+            <option value="" disabled>Select provider...</option>
+            {providers.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name.charAt(0).toUpperCase() + p.name.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Workflow Wizard */}
       <WorkflowWizard
         projectId={projectId}
         isRunning={isRunning}
+        hasProvider={hasProvider}
         onStartRun={() => startMutation.mutateAsync()}
         onStopRun={() => stopMutation.mutateAsync()}
       />
