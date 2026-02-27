@@ -173,6 +173,66 @@ projectsRouter.get('/:id/status', (req, res) => {
   });
 });
 
+// ---- Provider / Model Variant ----
+
+projectsRouter.put('/:id/provider', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const { provider } = req.body;
+  if (!provider || typeof provider !== 'string') {
+    return res.status(400).json({ error: 'provider is required' });
+  }
+
+  const trimmed = provider.trim();
+
+  // Validate provider exists in providers table
+  const providerRow = db.prepare('SELECT * FROM providers WHERE name = ?').get(trimmed) as { name: string; config: string | null } | undefined;
+  if (!providerRow) {
+    return res.status(400).json({ error: `Unknown provider: ${trimmed}` });
+  }
+
+  // Get default model variant from provider config
+  let defaultVariant: string | null = null;
+  if (providerRow.config) {
+    try {
+      const config = JSON.parse(providerRow.config);
+      defaultVariant = config.defaultVariant || null;
+    } catch {
+      // invalid config JSON — leave variant null
+    }
+  }
+
+  // Update provider and reset model_variant to the provider's default
+  db.prepare('UPDATE projects SET provider = ?, model_variant = ? WHERE id = ?')
+    .run(trimmed, defaultVariant, Number(id));
+
+  res.json({ success: true });
+});
+
+projectsRouter.put('/:id/model-variant', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const { variant } = req.body;
+  if (!variant || typeof variant !== 'string') {
+    return res.status(400).json({ error: 'variant is required' });
+  }
+
+  db.prepare('UPDATE projects SET model_variant = ? WHERE id = ?')
+    .run(variant.trim(), Number(id));
+
+  res.json({ success: true });
+});
+
 // ---- Archives ----
 
 projectsRouter.get('/:id/archives', (req, res) => {
