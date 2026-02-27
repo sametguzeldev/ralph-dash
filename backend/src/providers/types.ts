@@ -44,4 +44,11 @@ export interface Provider {
    * @param ralphPath  Absolute path to the Ralph installation directory
    */
   getFilesToSync(ralphPath: string): { source: string; dest: string }[];
+
+  /**
+   * Parse raw config JSON from the providers table into a ProviderConfig.
+   * Each provider maps its own DB config keys to the generic ProviderConfig shape.
+   * @param rawConfig  Parsed JSON object from providers.config column
+   */
+  parseConfig(rawConfig: Record<string, unknown>): ProviderConfig;
 }
