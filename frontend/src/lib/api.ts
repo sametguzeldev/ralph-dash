@@ -16,12 +16,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export interface SettingsResponse {
   ralphPath: string | null;
   isDocker: boolean;
-  claudeConfigured: boolean;
-  claudeModel?: string | null;
   gitConfigured?: boolean;
   gitUserName?: string | null;
   gitUserEmail?: string | null;
-  autoMemoryEnabled?: boolean;
 }
 
 export function getSettings() {
@@ -32,45 +29,6 @@ export function updateSettings(ralphPath: string) {
   return request<{ ralphPath: string }>('/settings', {
     method: 'PUT',
     body: JSON.stringify({ ralphPath }),
-  });
-}
-
-export function saveClaudeToken(token: string) {
-  return request<{ success: boolean; tokenType: 'api-key' | 'oauth' }>('/settings/claude-token', {
-    method: 'PUT',
-    body: JSON.stringify({ token }),
-  });
-}
-
-export function deleteClaudeToken() {
-  return request<{ success: boolean }>('/settings/claude-token', {
-    method: 'DELETE',
-  });
-}
-
-export function saveClaudeModel(model: string) {
-  return request<{ success: boolean; model: string }>('/settings/claude-model', {
-    method: 'PUT',
-    body: JSON.stringify({ model }),
-  });
-}
-
-export function deleteClaudeModel() {
-  return request<{ success: boolean }>('/settings/claude-model', {
-    method: 'DELETE',
-  });
-}
-
-export function saveAutoMemory(autoMemoryEnabled: boolean) {
-  return request<{ success: boolean; autoMemoryEnabled: boolean }>('/settings/auto-memory', {
-    method: 'PUT',
-    body: JSON.stringify({ autoMemoryEnabled }),
-  });
-}
-
-export function deleteAutoMemory() {
-  return request<{ success: boolean }>('/settings/auto-memory', {
-    method: 'DELETE',
   });
 }
 
@@ -98,12 +56,81 @@ export function deleteGitConfig() {
   });
 }
 
+// Models / Providers
+export interface ProviderResponse {
+  id: number;
+  name: string;
+  runner_script: string | null;
+  is_configured: boolean;
+  config: Record<string, unknown>;
+}
+
+export type ModelsResponse = ProviderResponse[];
+
+export function getModels() {
+  return request<ModelsResponse>('/models');
+}
+
+export function getProvider(name: string) {
+  return request<ProviderResponse>(`/models/${name}`);
+}
+
+export function saveProviderToken(provider: string, token: string) {
+  return request<{ success: boolean; tokenType: 'api-key' | 'oauth' }>(`/models/${provider}/token`, {
+    method: 'PUT',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function deleteProviderToken(provider: string) {
+  return request<{ success: boolean }>(`/models/${provider}/token`, {
+    method: 'DELETE',
+  });
+}
+
+export function saveProviderModel(provider: string, model: string) {
+  return request<{ success: boolean; model: string }>(`/models/${provider}/model`, {
+    method: 'PUT',
+    body: JSON.stringify({ model }),
+  });
+}
+
+export function deleteProviderModel(provider: string) {
+  return request<{ success: boolean }>(`/models/${provider}/model`, {
+    method: 'DELETE',
+  });
+}
+
+export function saveProviderPreferences(provider: string, preferences: Record<string, unknown>) {
+  return request<{ success: boolean }>(`/models/${provider}/preferences`, {
+    method: 'PUT',
+    body: JSON.stringify({ preferences }),
+  });
+}
+
+// Per-project provider assignment
+export function saveProjectProvider(projectId: number, provider: string) {
+  return request<{ success: boolean }>(`/projects/${projectId}/provider`, {
+    method: 'PUT',
+    body: JSON.stringify({ provider }),
+  });
+}
+
+export function saveProjectModelVariant(projectId: number, variant: string) {
+  return request<{ success: boolean }>(`/projects/${projectId}/model-variant`, {
+    method: 'PUT',
+    body: JSON.stringify({ variant }),
+  });
+}
+
 // Projects
 export interface ProjectSummary {
   id: number;
   name: string;
   path: string;
   created_at: string;
+  provider: string | null;
+  model_variant: string | null;
   branch: string | null;
   totalStories: number;
   doneStories: number;

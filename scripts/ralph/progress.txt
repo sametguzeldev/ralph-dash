@@ -1,51 +1,25 @@
 # Ralph Progress Log
-Started: Fri Feb 27 10:34:44 +04 2026
+Started: Fri Feb 27 18:53:03 UTC 2026
 ---
 
-## 2026-02-27 - US-004
-- Added `autoMemoryEnabled?: boolean` to `SettingsResponse` interface in `api.ts`
-- Added `saveAutoMemory` and `deleteAutoMemory` API functions in `api.ts`
-- Added auto-memory state and mutation to `Settings.tsx`
-- Added checkbox at bottom of Claude Model card with immediate save on toggle
-- On mutation error: reverts checkbox to previous state and shows error message
-- `useEffect` initializes checkbox from `data?.autoMemoryEnabled ?? true`
-- Files changed: `frontend/src/lib/api.ts`, `frontend/src/pages/Settings.tsx`
-- **Learnings for future iterations:**
-  - Immediate-save checkboxes: optimistically update state, revert in `onError`
-  - The `onError` callback receives `(err, variables)` — use `variables` to know what was attempted so you can revert
-  - `useEffect` guard `if (data !== undefined)` needed to avoid overwriting state before first load
-
+## 2026-02-27 18:56 - Parallel wave: US-001,US-002
+- Stories ran in parallel worktrees via `claude --worktree`
 ---
 
-## 2026-02-27 - US-003
-- Injected `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` into spawn env in `skillRunner.ts` when `autoMemoryEnabled` is false in DB
-- Used guard pattern: only inject if not already set in `cleanEnv` (matching the pattern from processManager.ts)
-- Reads `autoMemoryEnabled` from DB settings table; defaults to true when not set
-- Files changed: `backend/src/services/skillRunner.ts`
-- **Learnings for future iterations:**
-  - skillRunner.ts uses `cleanEnv` (vs `runEnv` in processManager.ts) — same guard pattern applies
-  - Injection block goes after model injection, before `spawn()` call
-  - Frontend rollup native module (`@rollup/rollup-darwin-arm64`) is missing — use `tsc -b --noEmit` directly instead of `npm run build` for frontend typecheck
+## 2026-02-27 19:01 - Parallel wave: US-003,US-004,US-005,US-006
+- Stories ran in parallel worktrees via `claude --worktree`
 ---
 
-## 2026-02-27 - US-002
-- Injected `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` into spawn env in `processManager.ts` when `autoMemoryEnabled` is false in DB
-- Used guard pattern: only inject if not already set in `runEnv` (same guard as other env vars in this file)
-- Reads `autoMemoryEnabled` from DB settings table; defaults to true when not set
-- Files changed: `backend/src/services/processManager.ts`
+## 2026-02-27 - US-007
+- Added new Models/Provider API functions: getModels, getProvider, saveProviderToken, deleteProviderToken, saveProviderModel, deleteProviderModel, saveProviderPreferences
+- Added per-project provider API functions: saveProjectProvider, saveProjectModelVariant
+- Added ProviderResponse and ModelsResponse TypeScript interfaces
+- Removed old Claude-specific API functions: saveClaudeToken, deleteClaudeToken, saveClaudeModel, deleteClaudeModel, saveAutoMemory, deleteAutoMemory
+- Updated SettingsResponse to remove claudeConfigured, claudeModel, autoMemoryEnabled
+- Updated ProjectSummary to include provider and model_variant fields
+- Cleaned up Settings.tsx to remove imports/usage of deleted API functions and removed Claude Model, Authentication, and Auto-Memory UI sections (necessary for typecheck to pass)
+- Files changed: frontend/src/lib/api.ts, frontend/src/pages/Settings.tsx
 - **Learnings for future iterations:**
-  - The env injection block in processManager.ts follows a consistent pattern: read from DB, check guard condition, assign to `runEnv`
-  - Deserialization pattern: `autoMemoryRow ? autoMemoryRow.value === 'true' : true` (same as settings.ts)
-  - The guard check uses `!runEnv.CLAUDE_CODE_DISABLE_AUTO_MEMORY` (not `process.env`) since `runEnv` starts as a spread of `process.env`
----
-
-## 2026-02-27 - US-001
-- Added `autoMemoryEnabled` field to GET /api/settings (reads from DB, defaults to true)
-- Added PUT /api/settings/auto-memory to save boolean toggle to settings table
-- Added DELETE /api/settings/auto-memory to remove the setting from DB
-- Files changed: backend/src/routes/settings.ts
-- **Learnings for future iterations:**
-  - Settings are stored as string values in the key-value `settings` table; booleans must be serialized with `String()` and deserialized with `=== 'true'`
-  - The GET /api/settings handler pattern: query each key individually, build response object, return res.json
-  - isDocker guard for optional fields is only used for git-config fields
+  - Removing API functions requires also cleaning up all consuming components to keep typecheck passing — US-007 (API removal) naturally overlaps with US-009 (Settings cleanup)
+  - Settings.tsx Claude sections were already removed as part of this story since the API functions they depended on were deleted
 ---

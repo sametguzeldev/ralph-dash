@@ -1,25 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSettings, updateSettings, saveClaudeToken, deleteClaudeToken, saveClaudeModel, deleteClaudeModel, saveGitConfig, deleteGitConfig, saveAutoMemory } from '../lib/api';
+import { getSettings, updateSettings, saveGitConfig, deleteGitConfig } from '../lib/api';
 
 export function Settings() {
   const queryClient = useQueryClient();
   const [ralphPath, setRalphPath] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Claude token state
-  const [claudeToken, setClaudeToken] = useState('');
-  const [showToken, setShowToken] = useState(false);
-  const [tokenMessage, setTokenMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Claude model state
-  const [claudeModel, setClaudeModel] = useState('');
-  const [customModel, setCustomModel] = useState('');
-  const [modelMessage, setModelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Auto-memory state
-  const [autoMemoryEnabled, setAutoMemoryEnabled] = useState(true);
-  const [autoMemoryMessage, setAutoMemoryMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Git config state
   const [gitName, setGitName] = useState('');
@@ -33,7 +19,6 @@ export function Settings() {
 
   useEffect(() => {
     if (data?.ralphPath) setRalphPath(data.ralphPath);
-    if (data !== undefined) setAutoMemoryEnabled(data?.autoMemoryEnabled ?? true);
   }, [data]);
 
   const mutation = useMutation({
@@ -44,67 +29,6 @@ export function Settings() {
     },
     onError: (err: Error) => {
       setMessage({ type: 'error', text: err.message });
-    },
-  });
-
-  const tokenMutation = useMutation({
-    mutationFn: (token: string) => saveClaudeToken(token),
-    onSuccess: (result) => {
-      const typeLabel = result.tokenType === 'oauth' ? 'OAuth Token' : 'API Key';
-      setTokenMessage({ type: 'success', text: `Saved! Token type: ${typeLabel}` });
-      setClaudeToken('');
-      setShowToken(false);
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err: Error) => {
-      setTokenMessage({ type: 'error', text: err.message });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteClaudeToken(),
-    onSuccess: () => {
-      setTokenMessage({ type: 'success', text: 'Token removed' });
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err: Error) => {
-      setTokenMessage({ type: 'error', text: err.message });
-    },
-  });
-
-  const modelSaveMutation = useMutation({
-    mutationFn: (model: string) => saveClaudeModel(model),
-    onSuccess: (result) => {
-      setModelMessage({ type: 'success', text: `Saved! Model: ${result.model}` });
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err: Error) => {
-      setModelMessage({ type: 'error', text: err.message });
-    },
-  });
-
-  const modelDeleteMutation = useMutation({
-    mutationFn: () => deleteClaudeModel(),
-    onSuccess: () => {
-      setModelMessage({ type: 'success', text: 'Model preference removed (using default)' });
-      setClaudeModel('');
-      setCustomModel('');
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err: Error) => {
-      setModelMessage({ type: 'error', text: err.message });
-    },
-  });
-
-  const autoMemoryMutation = useMutation({
-    mutationFn: (enabled: boolean) => saveAutoMemory(enabled),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err: Error, enabled: boolean) => {
-      // Revert the checkbox on failure
-      setAutoMemoryEnabled(!enabled);
-      setAutoMemoryMessage({ type: 'error', text: err.message });
     },
   });
 
@@ -160,34 +84,9 @@ export function Settings() {
     gitDeleteMutation.mutate();
   };
 
-  const handleSaveModel = () => {
-    setModelMessage(null);
-    const model = claudeModel === 'custom' ? customModel.trim() : claudeModel;
-    if (!model) {
-      setModelMessage({ type: 'error', text: 'Please select or enter a model' });
-      return;
-    }
-    modelSaveMutation.mutate(model);
-  };
-
-  const handleRemoveModel = () => {
-    setModelMessage(null);
-    modelDeleteMutation.mutate();
-  };
-
   const handleSave = () => {
     setMessage(null);
     mutation.mutate(ralphPath);
-  };
-
-  const handleSaveToken = () => {
-    setTokenMessage(null);
-    tokenMutation.mutate(claudeToken);
-  };
-
-  const handleRemoveToken = () => {
-    setTokenMessage(null);
-    deleteMutation.mutate();
   };
 
   return (
@@ -233,102 +132,6 @@ export function Settings() {
             <li className="font-mono">scripts/ralph/ralph-cc.sh</li>
             <li className="font-mono">scripts/ralph/CLAUDE.md</li>
           </ul>
-        </div>
-      </div>
-
-      {/* Claude Model */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mt-6">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-          <label className="block text-sm font-medium text-gray-300">
-            Claude Model
-          </label>
-          {data?.claudeModel && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              {data.claudeModel}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 mb-4">
-          Choose which Claude model to use for skill runs and Ralph iterations. Leave as default to use Claude Code's default model.
-        </p>
-
-        {data?.claudeModel ? (
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <span className="text-sm text-gray-400">Current model: <span className="font-mono text-gray-200">{data.claudeModel}</span></span>
-            <button
-              onClick={handleRemoveModel}
-              disabled={modelDeleteMutation.isPending}
-              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
-            >
-              {modelDeleteMutation.isPending ? 'Removing...' : 'Reset to Default'}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <select
-              value={claudeModel}
-              onChange={e => { setClaudeModel(e.target.value); setModelMessage(null); }}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
-            >
-              <option value="">Select a model...</option>
-              <option value="sonnet">Sonnet (latest)</option>
-              <option value="opus">Opus (latest)</option>
-              <option value="haiku">Haiku (latest)</option>
-              <option value="custom">Custom model ID...</option>
-            </select>
-            {claudeModel === 'custom' && (
-              <input
-                type="text"
-                value={customModel}
-                onChange={e => setCustomModel(e.target.value)}
-                placeholder="e.g., claude-sonnet-4-6"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
-              />
-            )}
-            <button
-              onClick={handleSaveModel}
-              disabled={modelSaveMutation.isPending || (!claudeModel || (claudeModel === 'custom' && !customModel.trim()))}
-              className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
-            >
-              {modelSaveMutation.isPending ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        )}
-
-        {modelMessage && (
-          <p className={`mt-3 text-sm ${modelMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-            {modelMessage.text}
-          </p>
-        )}
-
-        <div className="mt-6 border-t border-gray-800 pt-4">
-          <label className="flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={autoMemoryEnabled}
-              onChange={e => {
-                const next = e.target.checked;
-                setAutoMemoryEnabled(next);
-                setAutoMemoryMessage(null);
-                autoMemoryMutation.mutate(next);
-              }}
-              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-ralph-600 focus:ring-ralph-500 focus:ring-offset-gray-900 cursor-pointer"
-            />
-            <div>
-              <span className="text-sm font-medium text-gray-300 group-hover:text-gray-100 transition-colors">
-                Enable auto memory
-              </span>
-              <p className="text-xs text-gray-500 mt-0.5">
-                When enabled, Claude will remember project patterns and learnings across sessions
-              </p>
-            </div>
-          </label>
-          {autoMemoryMessage && (
-            <p className={`mt-2 text-sm ${autoMemoryMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-              {autoMemoryMessage.text}
-            </p>
-          )}
         </div>
       </div>
 
@@ -397,71 +200,6 @@ export function Settings() {
         </div>
       )}
 
-      {/* Claude Authentication — only shown for Docker users */}
-      {data?.isDocker && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mt-6">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <label className="block text-sm font-medium text-gray-300">
-              Claude Authentication
-            </label>
-            {data.claudeConfigured && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                Configured
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-gray-500 mb-4">
-            Run <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">claude setup-token</code> locally to get an OAuth token, or use an API key from{' '}
-            <span className="text-gray-400">console.anthropic.com</span>.
-          </p>
-
-          {data.claudeConfigured ? (
-            <div className="flex flex-col md:flex-row md:items-center gap-3">
-              <span className="text-sm text-gray-400">Token is stored securely.</span>
-              <button
-                onClick={handleRemoveToken}
-                disabled={deleteMutation.isPending}
-                className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
-              >
-                {deleteMutation.isPending ? 'Removing...' : 'Remove'}
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <input
-                  type={showToken ? 'text' : 'password'}
-                  value={claudeToken}
-                  onChange={e => setClaudeToken(e.target.value)}
-                  placeholder="sk-ant-oat01-... or sk-ant-api03-..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] pr-16 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300 px-2 py-1 min-h-[44px] transition-colors"
-                >
-                  {showToken ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              <button
-                onClick={handleSaveToken}
-                disabled={tokenMutation.isPending || !claudeToken.trim()}
-                className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
-              >
-                {tokenMutation.isPending ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          )}
-
-          {tokenMessage && (
-            <p className={`mt-3 text-sm ${tokenMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-              {tokenMessage.text}
-            </p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
