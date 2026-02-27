@@ -21,6 +21,10 @@ runnerRouter.post('/:id/run/start', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
+  if (!project.provider) {
+    return res.status(400).json({ error: 'No model provider assigned. Select a provider before starting a run.' });
+  }
+
   const result = startRun(project.id, project.path);
   if (!result.ok) {
     return res.status(409).json({ error: result.error });
