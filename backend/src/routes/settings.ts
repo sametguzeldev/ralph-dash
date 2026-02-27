@@ -7,18 +7,11 @@ export const settingsRouter = Router();
 
 settingsRouter.get('/', (_req, res) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('ralphPath') as { value: string } | undefined;
-  const tokenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeToken') as { value: string } | undefined;
   const isDocker = process.env.RALPH_DOCKER === 'true' || process.env.RALPH_DOCKER === '1';
-
-  const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
-  const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
 
   const response: Record<string, unknown> = {
     ralphPath: row?.value || null,
     isDocker,
-    claudeConfigured: !!tokenRow?.value,
-    claudeModel: modelRow?.value || null,
-    autoMemoryEnabled: autoMemoryRow ? autoMemoryRow.value === 'true' : true,
   };
 
   if (isDocker) {
@@ -58,91 +51,6 @@ settingsRouter.put('/', (req, res) => {
   res.json({ ralphPath: expandedPath });
 });
 
-// Claude token management (Docker authentication)
-settingsRouter.put('/claude-token', (req, res) => {
-  const { token } = req.body;
-
-  if (!token || typeof token !== 'string') {
-    return res.status(400).json({ error: 'token is required' });
-  }
-
-  const trimmed = token.trim();
-
-  if (!trimmed.startsWith('sk-ant-api') && !trimmed.startsWith('sk-ant-oat')) {
-    return res.status(400).json({ error: 'Token must start with sk-ant-api (API key) or sk-ant-oat (OAuth token)' });
-  }
-
-  const tokenType = trimmed.startsWith('sk-ant-oat') ? 'oauth' : 'api-key';
-
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeToken', trimmed);
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeTokenType', tokenType);
-
-  // For OAuth tokens, merge hasCompletedOnboarding into ~/.claude.json
-  if (tokenType === 'oauth') {
-    try {
-      const homeDir = process.env.HOME || '/home/node';
-      const claudeJsonPath = path.join(homeDir, '.claude.json');
-      let existing: Record<string, unknown> = {};
-      try {
-        existing = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf-8'));
-      } catch {
-        // File doesn't exist or is invalid — start fresh
-      }
-      existing.hasCompletedOnboarding = true;
-      fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
-    } catch (err) {
-      console.error('Failed to write ~/.claude.json:', err);
-    }
-  }
-
-  res.json({ success: true, tokenType });
-});
-
-settingsRouter.delete('/claude-token', (_req, res) => {
-  const typeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeTokenType') as { value: string } | undefined;
-  const wasOAuth = typeRow?.value === 'oauth';
-
-  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeToken');
-  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeTokenType');
-
-  // Only clean up ~/.claude.json if the deleted token was OAuth-type
-  if (wasOAuth) try {
-    const homeDir = process.env.HOME || '/home/node';
-    const claudeJsonPath = path.join(homeDir, '.claude.json');
-    const raw = fs.readFileSync(claudeJsonPath, 'utf-8');
-    const existing = JSON.parse(raw);
-    delete existing.hasCompletedOnboarding;
-    if (Object.keys(existing).length === 0) {
-      fs.unlinkSync(claudeJsonPath);
-    } else {
-      fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
-    }
-  } catch {
-    // File doesn't exist or couldn't be updated — no-op
-  }
-
-  res.json({ success: true });
-});
-
-// Claude model preference
-settingsRouter.put('/claude-model', (req, res) => {
-  const { model } = req.body;
-
-  if (!model || typeof model !== 'string' || !model.trim()) {
-    return res.status(400).json({ error: 'model is required' });
-  }
-
-  const trimmed = model.trim();
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('claudeModel', trimmed);
-
-  res.json({ success: true, model: trimmed });
-});
-
-settingsRouter.delete('/claude-model', (_req, res) => {
-  db.prepare('DELETE FROM settings WHERE key = ?').run('claudeModel');
-  res.json({ success: true });
-});
-
 // Git config management (Docker only)
 settingsRouter.put('/git-config', (req, res) => {
   const isDocker = process.env.RALPH_DOCKER === 'true' || process.env.RALPH_DOCKER === '1';
@@ -179,20 +87,3 @@ settingsRouter.delete('/git-config', (_req, res) => {
   res.json({ success: true });
 });
 
-// Auto-memory toggle
-settingsRouter.put('/auto-memory', (req, res) => {
-  const { autoMemoryEnabled } = req.body;
-
-  if (typeof autoMemoryEnabled !== 'boolean') {
-    return res.status(400).json({ error: 'autoMemoryEnabled must be a boolean' });
-  }
-
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('autoMemoryEnabled', String(autoMemoryEnabled));
-
-  res.json({ success: true, autoMemoryEnabled });
-});
-
-settingsRouter.delete('/auto-memory', (_req, res) => {
-  db.prepare('DELETE FROM settings WHERE key = ?').run('autoMemoryEnabled');
-  res.json({ success: true });
-});

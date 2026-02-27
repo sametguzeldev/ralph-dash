@@ -7,6 +7,7 @@ import { settingsRouter } from './routes/settings.js';
 import { projectsRouter } from './routes/projects.js';
 import { runnerRouter } from './routes/runner.js';
 import { workflowRouter } from './routes/workflow.js';
+import { modelsRouter } from './routes/models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +23,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/projects', runnerRouter);
 app.use('/api/projects', workflowRouter);
+app.use('/api/models', modelsRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
