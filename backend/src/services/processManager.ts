@@ -51,17 +51,34 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     return { ok: false, error: `Unknown provider: ${projectRow.provider}` };
   }
 
-  // Get provider row from DB for runner_script and config
-  const providerRow = db.prepare('SELECT runner_script, config FROM providers WHERE name = ?').get(projectRow.provider) as
-    { runner_script: string | null; config: string | null } | undefined;
+  // Get provider row from DB for runner_script, config, and is_configured
+  const providerRow = db.prepare('SELECT runner_script, config, is_configured FROM providers WHERE name = ?').get(projectRow.provider) as
+    { runner_script: string | null; config: string | null; is_configured: number } | undefined;
 
   if (!providerRow?.runner_script) {
     console.error(`[processManager] Provider '${projectRow.provider}' has no runner_script configured`);
     return { ok: false, error: `Provider '${projectRow.provider}' has no runner script configured.` };
   }
 
+  // Check if provider is configured (has a token) before starting a run
+  if (!providerRow.is_configured) {
+    console.error(`[processManager] Provider '${projectRow.provider}' is not configured (no token)`);
+    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please add a token first.` };
+  }
+
+  // Validate runner_script: must be a plain filename with no path traversal
+  if (providerRow.runner_script.includes('/') || providerRow.runner_script.includes('\\') || providerRow.runner_script.includes('..')) {
+    console.error(`[processManager] Invalid runner_script '${providerRow.runner_script}' for provider '${projectRow.provider}'`);
+    return { ok: false, error: `Invalid runner script name: ${providerRow.runner_script}` };
+  }
+
   // Build provider config from DB
-  const rawConfig = providerRow.config ? JSON.parse(providerRow.config) as Record<string, unknown> : {};
+  let rawConfig: Record<string, unknown> = {};
+  try {
+    rawConfig = providerRow.config ? JSON.parse(providerRow.config) as Record<string, unknown> : {};
+  } catch {
+    console.error(`[processManager] Failed to parse provider config for '${projectRow.provider}', using defaults`);
+  }
   const providerConfig = provider.parseConfig(rawConfig);
 
   // Use provider's runner_script instead of hardcoded ralph-cc.sh

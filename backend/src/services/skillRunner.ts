@@ -22,24 +22,19 @@ const MAX_OUTPUT_LINES = 500;
 
 /**
  * Load ProviderConfig from the providers table for the given provider name.
- * Falls back to sensible defaults if the provider row or config is missing.
+ * Uses the provider registry's parseConfig method for consistent parsing.
  */
 function loadProviderConfig(providerName: string): ProviderConfig {
-  const row = db.prepare('SELECT config FROM providers WHERE name = ?').get(providerName) as { config: string } | undefined;
+  const provider = getProvider(providerName);
+  const row = db.prepare('SELECT config FROM providers WHERE name = ?').get(providerName) as { config: string | null } | undefined;
   if (!row?.config) {
-    return { autoMemoryEnabled: true };
+    return provider.parseConfig({});
   }
-
   try {
-    const raw = JSON.parse(row.config) as Record<string, unknown>;
-    return {
-      token: (raw.claudeToken as string) ?? undefined,
-      tokenType: raw.claudeTokenType === 'oauth' ? 'oauth' : raw.claudeTokenType === 'api-key' ? 'api-key' : undefined,
-      model: (raw.claudeModel as string) ?? undefined,
-      autoMemoryEnabled: raw.autoMemoryEnabled !== undefined ? raw.autoMemoryEnabled === 'true' || raw.autoMemoryEnabled === true : true,
-    };
+    const rawConfig = JSON.parse(row.config) as Record<string, unknown>;
+    return provider.parseConfig(rawConfig);
   } catch {
-    return { autoMemoryEnabled: true };
+    return provider.parseConfig({});
   }
 }
 

@@ -25,6 +25,11 @@ runnerRouter.post('/:id/run/start', (req, res) => {
     return res.status(400).json({ error: 'No model provider assigned. Select a provider before starting a run.' });
   }
 
+  const providerRow = db.prepare('SELECT is_configured FROM providers WHERE name = ?').get(project.provider) as { is_configured: number } | undefined;
+  if (!providerRow?.is_configured) {
+    return res.status(400).json({ error: 'Provider is not configured. Add an auth token on the Models page first.' });
+  }
+
   const result = startRun(project.id, project.path);
   if (!result.ok) {
     return res.status(409).json({ error: result.error });

@@ -69,7 +69,10 @@ export class ClaudeProvider implements Provider {
       tokenType = token.startsWith('sk-ant-oat') ? 'oauth' : 'api-key';
     }
 
-    const autoMem = rawConfig.autoMemoryEnabled;
+    const preferences = rawConfig.preferences && typeof rawConfig.preferences === 'object' && !Array.isArray(rawConfig.preferences)
+      ? rawConfig.preferences as Record<string, unknown>
+      : undefined;
+    const autoMem = preferences?.autoMemoryEnabled ?? rawConfig.autoMemoryEnabled;
     const autoMemoryEnabled = autoMem === undefined ? true : (autoMem === 'true' || autoMem === true);
 
     return {
