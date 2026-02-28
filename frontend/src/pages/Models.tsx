@@ -230,9 +230,9 @@ function ClaudeTab({ provider }: { provider: ProviderResponse }) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
             >
               <option value="">Select a model...</option>
-              <option value="sonnet">Sonnet (latest)</option>
-              <option value="opus">Opus (latest)</option>
-              <option value="haiku">Haiku (latest)</option>
+              <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+              <option value="claude-opus-4-6">Opus 4.6</option>
+              <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
               <option value="custom">Custom model ID...</option>
             </select>
             {claudeModel === 'custom' && (

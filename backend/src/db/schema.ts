@@ -54,12 +54,12 @@ function migrateSettingsToProviders() {
   const modelRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('claudeModel') as { value: string } | undefined;
   const autoMemoryRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('autoMemoryEnabled') as { value: string } | undefined;
 
-  const defaultVariant = 'claude-sonnet-4-5-20250514';
+  const defaultVariant = 'claude-sonnet-4-6';
 
   const config = {
     modelVariants: [
-      'claude-sonnet-4-5-20250514',
-      'claude-opus-4-5-20250514',
+      'claude-sonnet-4-6',
+      'claude-opus-4-6',
       'claude-haiku-4-5-20251001',
     ],
     defaultVariant,
@@ -70,13 +70,13 @@ function migrateSettingsToProviders() {
     ...(autoMemoryRow?.value !== undefined ? { autoMemoryEnabled: autoMemoryRow.value } : {}),
   };
 
-  const isConfigure = tokenRow?.value ? 1 : 0;
+  const isConfigured = tokenRow?.value ? 1 : 0;
 
   // Wrap in a transaction so it's all-or-nothing
   const migrate = db.transaction(() => {
     db.prepare(
       `INSERT INTO providers (name, runner_script, is_configured, config) VALUES (?, ?, ?, ?)`
-    ).run('claude', 'ralph-cc.sh', isConfigure, JSON.stringify(config));
+    ).run('claude', 'ralph-cc.sh', isConfigured, JSON.stringify(config));
 
     // Backfill existing projects: set provider='claude' and model_variant
     const migratedModel = modelRow?.value || defaultVariant;

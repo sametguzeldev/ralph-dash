@@ -30,6 +30,31 @@ function parseConfig(raw: string | null): Record<string, unknown> {
   }
 }
 
+function sanitizeProviderConfig(raw: string | null): Record<string, unknown> {
+  const config = parseConfig(raw);
+  const safe: Record<string, unknown> = {};
+
+  if (typeof config.claudeModel === 'string' && config.claudeModel.trim()) {
+    safe.claudeModel = config.claudeModel;
+  }
+
+  if (Array.isArray(config.modelVariants) && (config.modelVariants as unknown[]).every((v) => typeof v === 'string')) {
+    safe.modelVariants = config.modelVariants;
+  }
+
+  if (typeof config.defaultVariant === 'string' && config.defaultVariant.trim()) {
+    safe.defaultVariant = config.defaultVariant;
+  }
+
+  if (config.preferences && typeof config.preferences === 'object' && !Array.isArray(config.preferences)) {
+    safe.preferences = config.preferences;
+  } else {
+    safe.preferences = {};
+  }
+
+  return safe;
+}
+
 // GET /api/models — list all providers
 modelsRouter.get('/', (_req, res) => {
   const rows = db.prepare('SELECT * FROM providers').all() as ProviderRow[];
@@ -38,7 +63,7 @@ modelsRouter.get('/', (_req, res) => {
     name: row.name,
     runner_script: row.runner_script,
     is_configured: !!row.is_configured,
-    config: parseConfig(row.config),
+    config: sanitizeProviderConfig(row.config),
   }));
   res.json(providers);
 });
@@ -54,7 +79,7 @@ modelsRouter.get('/:provider', (req, res) => {
     name: row.name,
     runner_script: row.runner_script,
     is_configured: !!row.is_configured,
-    config: parseConfig(row.config),
+    config: sanitizeProviderConfig(row.config),
   });
 });
 
