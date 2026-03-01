@@ -18,7 +18,7 @@ A self-hosted web dashboard for monitoring and controlling [Ralph](https://githu
 - **Run history / archives** — browse completed runs stored under `scripts/ralph/archive/`
 - **Multi-workspace support** — mount as many project directories as you need via `docker-compose.override.yml`
 - **File sync** — copies Ralph skills and scripts into a project on add or manual sync
-- **Docker Claude authentication** — configure an API key or OAuth token in Settings so the containerized Claude CLI can run skills
+- **Provider management** — configure AI model providers (API key or OAuth token), select model variants, and set preferences from the Models page
 - **Delete with confirmation** — type-to-confirm modal; stops active runs automatically before removal
 
 ---
@@ -83,9 +83,10 @@ Open [http://localhost:5625](http://localhost:5625) in your browser.
 ## First-time Setup
 
 1. Go to **Settings** and confirm your Ralph installation path is correct. Hit **Save** — this validates the path and makes file sync available.
-2. **(Docker only)** In the **Claude Authentication** section, paste your token:
+2. Go to **Models** and configure your provider:
    - **OAuth token** — run `claude setup-token` on your host machine to get an `sk-ant-oat...` token (uses your Claude Pro/Max subscription)
    - **API key** — get an `sk-ant-api...` key from [console.anthropic.com](https://console.anthropic.com) (pay-per-use)
+   - Optionally select a model variant and set preferences.
 3. Go to **Projects** and click **Add Project**.
 4. Enter a display name and the absolute path to your project root (tilde `~` is supported).
 5. RalphDash will copy the Ralph skills into your project automatically.
@@ -100,7 +101,8 @@ ralph-dash/
 ├── backend/                  # Express + TypeScript API
 │   └── src/
 │       ├── db/               # SQLite schema and connection (better-sqlite3)
-│       ├── routes/           # projects, runner, settings, workflow
+│       ├── providers/        # Provider abstraction (types, claude, registry)
+│       ├── routes/           # projects, runner, settings, workflow, models
 │       └── services/         # fileParser, fileCopier, processManager,
 │                             #   skillRunner, workflowDetector
 ├── frontend/                 # React + Vite + TypeScript
@@ -108,7 +110,7 @@ ralph-dash/
 │       ├── components/       # KanbanBoard, LogViewer, ProgressTimeline,
 │       │                     #   RunHistory, DeleteConfirmModal, Sidebar,
 │       │                     #   WorkflowWizard, FileEditor, WizardStepIndicator
-│       ├── pages/            # Dashboard, Projects, Settings
+│       ├── pages/            # Dashboard, Projects, Models, Settings
 │       └── lib/api.ts        # Typed fetch wrapper
 ├── .env.example
 ├── docker-compose.yml
@@ -122,14 +124,17 @@ ralph-dash/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/settings` | Get settings (includes `isDocker`, `claudeConfigured`) |
+| `GET` | `/api/settings` | Get settings (includes `isDocker`) |
 | `PUT` | `/api/settings` | Update Ralph path |
-| `PUT` | `/api/settings/claude-token` | Save Claude auth token |
-| `DELETE` | `/api/settings/claude-token` | Remove Claude auth token |
+| `PUT` | `/api/settings/git-config` | Configure Git author for Docker |
+| `DELETE` | `/api/settings/git-config` | Remove Git author config |
 | `GET` | `/api/projects` | List all projects (with live status) |
 | `POST` | `/api/projects` | Add a new project |
+| `GET` | `/api/projects/:id` | Get a single project |
 | `DELETE` | `/api/projects/:id` | Remove a project (stops active run) |
 | `POST` | `/api/projects/:id/sync` | Re-copy Ralph files into a project |
+| `PUT` | `/api/projects/:id/provider` | Assign a provider to a project |
+| `PUT` | `/api/projects/:id/model-variant` | Set model variant for a project |
 | `GET` | `/api/projects/:id/status` | Full project status (PRD + progress + branch) |
 | `GET` | `/api/projects/:id/archives` | List completed run archives |
 | `GET` | `/api/projects/:id/archives/:folder` | Get a specific archive detail |
@@ -147,6 +152,14 @@ ralph-dash/
 | `GET` | `/api/projects/:id/workflow/skill/status` | Get skill run status |
 | `GET` | `/api/projects/:id/workflow/skill/output` | Poll skill output (`?since=N`) |
 | `POST` | `/api/projects/:id/workflow/prd-json/validate` | Validate prd.json content |
+| `GET` | `/api/models` | List all providers |
+| `GET` | `/api/models/:provider` | Get provider details |
+| `PUT` | `/api/models/:provider/token` | Save provider auth token |
+| `DELETE` | `/api/models/:provider/token` | Remove provider auth token |
+| `PUT` | `/api/models/:provider/model` | Set default model for provider |
+| `DELETE` | `/api/models/:provider/model` | Remove default model |
+| `PUT` | `/api/models/:provider/preferences` | Update provider preferences |
+| `GET` | `/api/health` | Health check |
 
 ---
 
@@ -210,6 +223,6 @@ docker compose down
 - **Process management** — runs are spawned as detached bash processes. Output is buffered (last 500 lines) and served via long-polling with an absolute line counter, so the log viewer survives buffer rotation.
 - **Skill runner** — spawns `claude -p` with `--output-format stream-json --verbose` to execute skills. Stream-json events are parsed in real time into human-readable progress messages. The `CLAUDECODE` env var is stripped to avoid nested-session detection.
 - **Workflow detection** — `workflowDetector` scans the project's `tasks/` directory for `prd-questions-*.md` and `prd-*.md` files and determines which workflow step the project is on.
-- **Docker authentication** — when `RALPH_DOCKER=1` is set, Settings exposes a Claude token input. Tokens are stored in SQLite and injected as `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` when spawning skills.
-- **Frontend state** — TanStack React Query; the projects list and dashboard refetch every 3–5 seconds automatically. Skill output uses plain `setInterval` polling to avoid query-key caching conflicts.
+- **Provider abstraction** — providers implement a common interface (`getEnvVars()`, `getCliArgs()`, `getModelVariants()`, etc.) registered in `backend/src/providers/`. Projects reference a provider by name and model variant. The processManager and skillRunner inject provider-specific env vars and CLI args when spawning processes. API keys are stored in the `providers` table; OAuth tokens are written to `~/.claude.json`.
+- **Frontend state** — TanStack React Query; the projects list and dashboard refetch every 3 seconds automatically. Skill output uses plain `setInterval` polling to avoid query-key caching conflicts.
 - **Security** — workflow file paths are validated against an allowlist (`tasks/`, `scripts/ralph/prd.json`) and resolved against the project root to prevent path traversal. The container runs as the `node` user (non-root).
