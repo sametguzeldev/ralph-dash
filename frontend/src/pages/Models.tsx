@@ -12,6 +12,13 @@ import {
 
 const PROVIDER_TABS = [{ key: 'claude', label: 'Claude' }] as const;
 
+function formatVariantLabel(variant: string): string {
+  if (variant.includes('opus')) return 'Opus';
+  if (variant.includes('sonnet')) return 'Sonnet';
+  if (variant.includes('haiku')) return 'Haiku';
+  return variant;
+}
+
 function ClaudeTab({ provider }: { provider: ProviderResponse }) {
   const queryClient = useQueryClient();
   const config = provider.config as Record<string, unknown>;
@@ -230,9 +237,9 @@ function ClaudeTab({ provider }: { provider: ProviderResponse }) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
             >
               <option value="">Select a model...</option>
-              <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-              <option value="claude-opus-4-6">Opus 4.6</option>
-              <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+              {((config.modelVariants as string[] | undefined) ?? []).map((v: string) => (
+                <option key={v} value={v}>{formatVariantLabel(v)}</option>
+              ))}
               <option value="custom">Custom model ID...</option>
             </select>
             {claudeModel === 'custom' && (

@@ -4,16 +4,9 @@ import path from 'path';
 import { db } from '../db/connection.js';
 import { detectWorkflowStep, validatePrdJson } from '../services/workflowDetector.js';
 import { startSkill, stopSkill, clearSkillRun, getSkillStatus, getSkillOutput, type SkillName } from '../services/skillRunner.js';
+import type { ProjectRow } from '../db/types.js';
 
 export const workflowRouter = Router();
-
-interface ProjectRow {
-  id: number;
-  name: string;
-  path: string;
-  provider: string | null;
-  model_variant: string | null;
-}
 
 // Allowed paths for security: entries ending with '/' are directory prefixes, others are exact matches
 const ALLOWED_DIRS = ['tasks/'];

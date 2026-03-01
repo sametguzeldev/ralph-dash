@@ -11,6 +11,13 @@ import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { WorkflowWizard } from '../components/WorkflowWizard';
 import { useIsMobile } from '../hooks/useIsMobile';
 
+function formatVariantLabel(variant: string): string {
+  if (variant.includes('opus')) return 'Opus';
+  if (variant.includes('sonnet')) return 'Sonnet';
+  if (variant.includes('haiku')) return 'Haiku';
+  return variant;
+}
+
 export function Dashboard() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,11 +48,19 @@ export function Dashboard() {
   const providerMutation = useMutation({
     mutationFn: (provider: string) => saveProjectProvider(projectId, provider),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
+    onError: (err: Error) => {
+      setSyncMsg({ type: 'error', text: err.message });
+      setTimeout(() => setSyncMsg(null), 5000);
+    },
   });
 
   const modelVariantMutation = useMutation({
     mutationFn: (variant: string) => saveProjectModelVariant(projectId, variant),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
+    onError: (err: Error) => {
+      setSyncMsg({ type: 'error', text: err.message });
+      setTimeout(() => setSyncMsg(null), 5000);
+    },
   });
 
   const isMobile = useIsMobile();
@@ -88,13 +103,6 @@ export function Dashboard() {
     (p) => p.name === data.project.provider
   );
   const modelVariants: string[] = selectedProvider?.config?.modelVariants as string[] ?? [];
-
-  function formatVariantLabel(variant: string): string {
-    if (variant.includes('opus')) return 'Opus';
-    if (variant.includes('sonnet')) return 'Sonnet';
-    if (variant.includes('haiku')) return 'Haiku';
-    return variant;
-  }
 
   return (
     <div className="space-y-6">

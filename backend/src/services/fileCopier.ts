@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { getProvider } from '../providers/registry.js';
+import { getProvider, DEFAULT_PROVIDER } from '../providers/registry.js';
 
-export function copyRalphFiles(ralphPath: string, projectRoot: string, providerName: string = 'claude') {
+export function copyRalphFiles(ralphPath: string, projectRoot: string, providerName: string = DEFAULT_PROVIDER) {
   const provider = getProvider(providerName);
   const filesToSync = provider.getFilesToSync(ralphPath);
 

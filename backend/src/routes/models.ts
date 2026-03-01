@@ -2,18 +2,11 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
+import type { ProviderRow } from '../db/types.js';
 
 export const modelsRouter = Router();
 
-interface ProviderRow {
-  id: number;
-  name: string;
-  runner_script: string | null;
-  is_configured: number;
-  config: string | null;
-}
-
-function getProvider(name: string): ProviderRow | undefined {
+function getProviderRow(name: string): ProviderRow | undefined {
   return db.prepare('SELECT * FROM providers WHERE name = ?').get(name) as ProviderRow | undefined;
 }
 
@@ -27,6 +20,23 @@ function parseConfig(raw: string | null): Record<string, unknown> {
     return JSON.parse(raw);
   } catch {
     return {};
+  }
+}
+
+function setClaudeOnboarding(value: boolean): void {
+  try {
+    const homeDir = process.env.HOME || '/home/node';
+    const claudeJsonPath = path.join(homeDir, '.claude.json');
+    let existing: Record<string, unknown> = {};
+    try {
+      existing = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf-8'));
+    } catch {
+      // File doesn't exist or is invalid — start fresh
+    }
+    existing.hasCompletedOnboarding = value;
+    fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
+  } catch (err) {
+    console.error('Failed to update ~/.claude.json:', err);
   }
 }
 
@@ -70,7 +80,7 @@ modelsRouter.get('/', (_req, res) => {
 
 // GET /api/models/:provider — single provider's full configuration
 modelsRouter.get('/:provider', (req, res) => {
-  const row = getProvider(req.params.provider);
+  const row = getProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }
@@ -85,7 +95,7 @@ modelsRouter.get('/:provider', (req, res) => {
 
 // PUT /api/models/:provider/token — save auth token
 modelsRouter.put('/:provider/token', (req, res) => {
-  const row = getProvider(req.params.provider);
+  const row = getProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }
@@ -113,22 +123,8 @@ modelsRouter.put('/:provider/token', (req, res) => {
   db.prepare('UPDATE providers SET is_configured = 1, config = ? WHERE name = ?')
     .run(JSON.stringify(config), row.name);
 
-  // For OAuth tokens, merge hasCompletedOnboarding into ~/.claude.json
   if (tokenType === 'oauth') {
-    try {
-      const homeDir = process.env.HOME || '/home/node';
-      const claudeJsonPath = path.join(homeDir, '.claude.json');
-      let existing: Record<string, unknown> = {};
-      try {
-        existing = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf-8'));
-      } catch {
-        // File doesn't exist or is invalid — start fresh
-      }
-      existing.hasCompletedOnboarding = true;
-      fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
-    } catch (err) {
-      console.error('Failed to write ~/.claude.json:', err);
-    }
+    setClaudeOnboarding(true);
   }
 
   res.json({ success: true, tokenType });
@@ -136,7 +132,7 @@ modelsRouter.put('/:provider/token', (req, res) => {
 
 // DELETE /api/models/:provider/token — remove auth token
 modelsRouter.delete('/:provider/token', (req, res) => {
-  const row = getProvider(req.params.provider);
+  const row = getProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }
@@ -150,18 +146,8 @@ modelsRouter.delete('/:provider/token', (req, res) => {
   db.prepare('UPDATE providers SET is_configured = 0, config = ? WHERE name = ?')
     .run(JSON.stringify(config), row.name);
 
-  // For OAuth tokens, set hasCompletedOnboarding: false in ~/.claude.json
   if (wasOAuth) {
-    try {
-      const homeDir = process.env.HOME || '/home/node';
-      const claudeJsonPath = path.join(homeDir, '.claude.json');
-      const raw = fs.readFileSync(claudeJsonPath, 'utf-8');
-      const existing = JSON.parse(raw);
-      existing.hasCompletedOnboarding = false;
-      fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
-    } catch {
-      // File doesn't exist or couldn't be updated — no-op
-    }
+    setClaudeOnboarding(false);
   }
 
   res.json({ success: true });
@@ -169,7 +155,7 @@ modelsRouter.delete('/:provider/token', (req, res) => {
 
 // PUT /api/models/:provider/model — save selected model variant
 modelsRouter.put('/:provider/model', (req, res) => {
-  const row = getProvider(req.params.provider);
+  const row = getProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }
@@ -189,7 +175,7 @@ modelsRouter.put('/:provider/model', (req, res) => {
 
 // DELETE /api/models/:provider/model — reset model variant to provider default
 modelsRouter.delete('/:provider/model', (req, res) => {
-  const row = getProvider(req.params.provider);
+  const row = getProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }
@@ -203,7 +189,7 @@ modelsRouter.delete('/:provider/model', (req, res) => {
 
 // PUT /api/models/:provider/preferences — save provider-specific behavioral preferences
 modelsRouter.put('/:provider/preferences', (req, res) => {
-  const row = getProvider(req.params.provider);
+  const row = getProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }

@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
-import { getProvider } from '../providers/registry.js';
+import { getProvider, buildRunEnv, loadProviderConfig } from '../providers/registry.js';
 
 interface RunInfo {
   process: ChildProcess;
@@ -72,15 +72,6 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     return { ok: false, error: `Invalid runner script name: ${providerRow.runner_script}` };
   }
 
-  // Build provider config from DB
-  let rawConfig: Record<string, unknown> = {};
-  try {
-    rawConfig = providerRow.config ? JSON.parse(providerRow.config) as Record<string, unknown> : {};
-  } catch {
-    console.error(`[processManager] Failed to parse provider config for '${projectRow.provider}', using defaults`);
-  }
-  const providerConfig = provider.parseConfig(rawConfig);
-
   // Use provider's runner_script instead of hardcoded ralph-cc.sh
   const scriptPath = path.join(projectPath, 'scripts', 'ralph', providerRow.runner_script);
 
@@ -101,30 +92,8 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     }
   }
 
-  // Build env: start with process env and remove CLAUDECODE
-  const runEnv = { ...process.env };
-  delete runEnv.CLAUDECODE;
-
-  // Use provider abstraction to get env vars (replaces hardcoded Claude-specific logic)
-  const providerEnvVars = provider.getEnvVars(providerConfig, projectRow.model_variant ?? undefined);
-  for (const [key, value] of Object.entries(providerEnvVars)) {
-    // Guard: only inject if not already set in process env
-    if (!runEnv[key]) {
-      runEnv[key] = value;
-    }
-  }
-
-  // Inject git identity from DB if not already set in the environment (not provider-specific)
-  const nameRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserName') as { value: string } | undefined;
-  const emailRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserEmail') as { value: string } | undefined;
-  if (nameRow?.value && emailRow?.value) {
-    if (!runEnv.GIT_AUTHOR_NAME) runEnv.GIT_AUTHOR_NAME = nameRow.value;
-    if (!runEnv.GIT_AUTHOR_EMAIL) runEnv.GIT_AUTHOR_EMAIL = emailRow.value;
-    if (!runEnv.GIT_COMMITTER_NAME) runEnv.GIT_COMMITTER_NAME = nameRow.value;
-    if (!runEnv.GIT_COMMITTER_EMAIL) runEnv.GIT_COMMITTER_EMAIL = emailRow.value;
-  }
-
-  // Get CLI args from provider for injection into the spawned script
+  const runEnv = buildRunEnv(projectRow.provider, projectRow.model_variant ?? undefined);
+  const providerConfig = loadProviderConfig(projectRow.provider);
   const cliArgs = provider.getCliArgs(providerConfig, projectRow.model_variant ?? undefined);
 
   const child = spawn('bash', [scriptPath, ...cliArgs], {

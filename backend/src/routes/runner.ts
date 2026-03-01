@@ -1,16 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db/connection.js';
 import { startRun, stopRun, getRunStatus, getRunOutput } from '../services/processManager.js';
+import type { ProjectRow } from '../db/types.js';
 
 export const runnerRouter = Router();
-
-interface ProjectRow {
-  id: number;
-  name: string;
-  path: string;
-  provider: string | null;
-  model_variant: string | null;
-}
 
 runnerRouter.post('/:id/run/start', (req, res) => {
   const { id } = req.params;
@@ -19,15 +12,6 @@ runnerRouter.post('/:id/run/start', (req, res) => {
 
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
-  }
-
-  if (!project.provider) {
-    return res.status(400).json({ error: 'No model provider assigned. Select a provider before starting a run.' });
-  }
-
-  const providerRow = db.prepare('SELECT is_configured FROM providers WHERE name = ?').get(project.provider) as { is_configured: number } | undefined;
-  if (!providerRow?.is_configured) {
-    return res.status(400).json({ error: 'Provider is not configured. Add an auth token on the Models page first.' });
   }
 
   const result = startRun(project.id, project.path);

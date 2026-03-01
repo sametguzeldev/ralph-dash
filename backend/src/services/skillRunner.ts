@@ -1,9 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { db } from '../db/connection.js';
-import { getProvider } from '../providers/registry.js';
-import type { ProviderConfig } from '../providers/types.js';
+import { getProvider, loadProviderConfig, buildRunEnv, DEFAULT_PROVIDER } from '../providers/registry.js';
 
 export type SkillName = 'prd-questions' | 'prd' | 'ralph';
 
@@ -19,24 +17,6 @@ interface SkillRun {
 }
 
 const MAX_OUTPUT_LINES = 500;
-
-/**
- * Load ProviderConfig from the providers table for the given provider name.
- * Uses the provider registry's parseConfig method for consistent parsing.
- */
-function loadProviderConfig(providerName: string): ProviderConfig {
-  const provider = getProvider(providerName);
-  const row = db.prepare('SELECT config FROM providers WHERE name = ?').get(providerName) as { config: string | null } | undefined;
-  if (!row?.config) {
-    return provider.parseConfig({});
-  }
-  try {
-    const rawConfig = JSON.parse(row.config) as Record<string, unknown>;
-    return provider.parseConfig(rawConfig);
-  } catch {
-    return provider.parseConfig({});
-  }
-}
 
 const skillRuns = new Map<number, SkillRun>();
 
@@ -155,34 +135,10 @@ export function startSkill(
   const skillContent = readSkillFile(projectPath, skill);
   const prompt = buildPrompt(skill, params);
 
-  // Strip CLAUDECODE env var to avoid "nested session" detection
-  const cleanEnv = { ...process.env };
-  delete cleanEnv.CLAUDECODE;
-
-  // Build provider config and inject env vars / CLI args via the provider abstraction
-  const effectiveProvider = providerName || 'claude';
+  const effectiveProvider = providerName || DEFAULT_PROVIDER;
+  const cleanEnv = buildRunEnv(effectiveProvider, modelVariant);
   const provider = getProvider(effectiveProvider);
   const providerConfig = loadProviderConfig(effectiveProvider);
-
-  // Inject provider env vars (auth token, model, auto-memory flag) with guard: skip vars already set
-  const providerEnv = provider.getEnvVars(providerConfig, modelVariant ?? undefined);
-  for (const [key, value] of Object.entries(providerEnv)) {
-    if (!cleanEnv[key]) {
-      cleanEnv[key] = value;
-    }
-  }
-
-  // Inject git identity from DB if not already set in the environment
-  if (!cleanEnv.GIT_AUTHOR_NAME && !cleanEnv.GIT_AUTHOR_EMAIL && !cleanEnv.GIT_COMMITTER_NAME && !cleanEnv.GIT_COMMITTER_EMAIL) {
-    const nameRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserName') as { value: string } | undefined;
-    const emailRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserEmail') as { value: string } | undefined;
-    if (nameRow?.value && emailRow?.value) {
-      cleanEnv.GIT_AUTHOR_NAME = nameRow.value;
-      cleanEnv.GIT_AUTHOR_EMAIL = emailRow.value;
-      cleanEnv.GIT_COMMITTER_NAME = nameRow.value;
-      cleanEnv.GIT_COMMITTER_EMAIL = emailRow.value;
-    }
-  }
 
   // Build CLI args: base args + provider-specific args (e.g. --model)
   const cliArgs = [
@@ -191,7 +147,7 @@ export function startSkill(
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--verbose',
-    ...provider.getCliArgs(providerConfig, modelVariant ?? undefined),
+    ...provider.getCliArgs(providerConfig, modelVariant),
   ];
 
   const child = spawn('claude', cliArgs, {
