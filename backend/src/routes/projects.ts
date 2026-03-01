@@ -26,9 +26,9 @@ projectsRouter.get('/', (_req, res) => {
     const prd = parsePrd(p.path);
     const branch = readBranch(p.path);
     const runStatus = getRunStatus(p.id);
-    const totalStories = prd?.userStories.length || 0;
-    const doneStories = prd?.userStories.filter(s => s.passes).length || 0;
-    const inProgressStories = prd?.userStories.filter(s => s.inProgress && !s.passes).length || 0;
+    const totalStories = prd?.userStories?.length || 0;
+    const doneStories = prd?.userStories?.filter(s => s.passes).length || 0;
+    const inProgressStories = prd?.userStories?.filter(s => s.inProgress && !s.passes).length || 0;
 
     return {
       ...p,
@@ -152,7 +152,7 @@ projectsRouter.get('/:id/status', (req, res) => {
   const workflowStatus = detectWorkflowStep(project.path);
 
   // Derive task statuses
-  const tasks = prd?.userStories.map(story => ({
+  const tasks = prd?.userStories?.map(story => ({
     ...story,
     status: deriveTaskStatus(story),
   })) || [];
@@ -269,7 +269,7 @@ projectsRouter.get('/:id/archives/:folder', (req, res) => {
     return res.status(404).json({ error: 'Archive not found' });
   }
 
-  const tasks = prd?.userStories.map(story => ({
+  const tasks = prd?.userStories?.map(story => ({
     ...story,
     status: deriveTaskStatus(story),
   })) || [];
