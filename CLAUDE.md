@@ -54,12 +54,12 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 ### Provider Abstraction
 Providers implement a common interface (`backend/src/providers/types.ts`) with methods: `getEnvVars()`, `getCliArgs()`, `getModelVariants()`, `getAuthConfig()`, `getFilesToSync()`, `parseConfig()`. Currently only Claude is implemented. The registry (`registry.ts`) resolves providers by name. Projects reference a provider by name and a model_variant string. The processManager and skillRunner inject provider-specific env vars and CLI args when spawning processes.
 
-**Token handling**: API keys (`sk-ant-api*`) are stored in the providers table config. OAuth tokens (`sk-ant-oat*`) are written to `~/.claude.json` with `hasCompletedOnboarding: true`.
+**Token handling**: API keys are stored in provider config and OAuth tokens are written to `~/.claude.json` with `hasCompletedOnboarding: true".
 
 ### Data Flow
 - Projects live on the host filesystem. The backend reads `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`, and `.last-branch` from each project's directory.
 - Task status is derived: `passes: true` → done, `inProgress: true` (and not passes) → in_progress, else → pending.
-- The runner spawns `ralph-cc.sh` as a detached bash process, buffers output (max 500 lines), and serves it via polling. Finished runs kept for 60s TTL.
+- The runner spawns the provider's configured runner script (e.g., `ralph-cc.sh` for Claude provider) as a detached bash process, buffers output (max 500 lines), and serves it via polling. Finished runs kept for 60s TTL.
 
 ### Workflow Detection
 The workflowDetector checks files in `scripts/ralph/` and `tasks/` to determine the workflow step, evaluated in this cascade: `prd-json-ready` → `prd-created` → `questions-answered` → `questions-created` → `no-files`. File patterns: `prd-questions-*.md`, `prd-*.md`, `prd.json`.

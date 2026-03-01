@@ -220,8 +220,33 @@ projectsRouter.put('/:id/model-variant', (req, res) => {
     return res.status(400).json({ error: 'variant is required' });
   }
 
+  // Validate variant against the selected provider
+  if (!project.provider) {
+    return res.status(400).json({ error: 'Project has no provider assigned' });
+  }
+
+  const trimmedVariant = variant.trim();
+  const providerRow = db.prepare('SELECT config FROM providers WHERE name = ?')
+    .get(project.provider) as { config: string | null } | undefined;
+
+  let allowedVariants: string[] = [];
+  if (providerRow?.config) {
+    try {
+      const parsed = JSON.parse(providerRow.config) as Record<string, unknown>;
+      if (Array.isArray(parsed.modelVariants)) {
+        allowedVariants = parsed.modelVariants.filter((v): v is string => typeof v === 'string');
+      }
+    } catch {
+      return res.status(500).json({ error: `Invalid config for provider '${project.provider}'` });
+    }
+  }
+
+  if (allowedVariants.length > 0 && !allowedVariants.includes(trimmedVariant)) {
+    return res.status(400).json({ error: `Invalid variant '${trimmedVariant}' for provider '${project.provider}'. Allowed: ${allowedVariants.join(', ')}` });
+  }
+
   db.prepare('UPDATE projects SET model_variant = ? WHERE id = ?')
-    .run(variant.trim(), Number(id));
+    .run(trimmedVariant, Number(id));
 
   res.json({ success: true });
 });
