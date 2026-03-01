@@ -7,17 +7,10 @@ import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
 import { getRunStatus, stopRun } from '../services/processManager.js';
 import { detectWorkflowStep } from '../services/workflowDetector.js';
+import { DEFAULT_PROVIDER } from '../providers/registry.js';
+import type { ProjectRow } from '../db/types.js';
 
 export const projectsRouter = Router();
-
-interface ProjectRow {
-  id: number;
-  name: string;
-  path: string;
-  created_at: string;
-  provider: string | null;
-  model_variant: string | null;
-}
 
 projectsRouter.get('/', (_req, res) => {
   const projects = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as ProjectRow[];
@@ -66,7 +59,7 @@ projectsRouter.post('/', (req, res) => {
     const result = db.prepare('INSERT INTO projects (name, path) VALUES (?, ?)').run(name, expandedPath);
     try {
       const inserted = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as ProjectRow;
-      copyRalphFiles(settingsRow.value, expandedPath, inserted.provider ?? 'claude');
+      copyRalphFiles(settingsRow.value, expandedPath, inserted.provider ?? DEFAULT_PROVIDER);
     } catch (copyErr: unknown) {
       db.prepare('DELETE FROM projects WHERE id = ?').run(result.lastInsertRowid);
       const message = copyErr instanceof Error ? copyErr.message : 'Unknown error';
@@ -118,7 +111,7 @@ projectsRouter.post('/:id/sync', (req, res) => {
   }
 
   try {
-    copyRalphFiles(settingsRow.value, project.path, project.provider ?? 'claude');
+    copyRalphFiles(settingsRow.value, project.path, project.provider ?? DEFAULT_PROVIDER);
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
