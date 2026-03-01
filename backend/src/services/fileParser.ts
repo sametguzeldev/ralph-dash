@@ -186,8 +186,8 @@ export function listArchives(projectPath: string): ArchiveSummary[] {
         date,
         featureName,
         branchName: prd?.branchName ?? `ralph/${featureName}`,
-        totalStories: prd?.userStories.length ?? 0,
-        doneStories: prd?.userStories.filter(s => s.passes).length ?? 0,
+        totalStories: prd?.userStories?.length ?? 0,
+        doneStories: prd?.userStories?.filter(s => s.passes).length ?? 0,
       });
     }
 
