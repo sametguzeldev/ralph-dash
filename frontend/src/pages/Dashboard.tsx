@@ -102,7 +102,10 @@ export function Dashboard() {
   const selectedProvider: ProviderResponse | undefined = providers?.find(
     (p) => p.name === data.project.provider
   );
-  const modelVariants: string[] = selectedProvider?.config?.modelVariants as string[] ?? [];
+  const rawModelVariants = selectedProvider?.config?.modelVariants;
+  const modelVariants = Array.isArray(rawModelVariants)
+    ? rawModelVariants.filter((v): v is string => typeof v === 'string')
+    : [];
 
   return (
     <div className="space-y-6">

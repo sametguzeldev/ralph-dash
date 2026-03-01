@@ -95,7 +95,7 @@ export class ClaudeProvider implements Provider {
 
     for (const file of SCRIPTS_TO_SYNC) {
       files.push({
-        source: path.join(ralphPath, file),
+        source: path.join(ralphPath, 'scripts', 'ralph', file),
         dest: path.join('scripts', 'ralph', file),
       });
     }
