@@ -196,7 +196,7 @@ projectsRouter.put('/:id/provider', (req, res) => {
       const config = JSON.parse(providerRow.config);
       defaultVariant = config.defaultVariant || null;
     } catch {
-      // invalid config JSON — leave variant null
+      return res.status(500).json({ error: `Invalid config for provider '${trimmed}'` });
     }
   }
 
@@ -226,11 +226,18 @@ projectsRouter.put('/:id/model-variant', (req, res) => {
   }
 
   const trimmedVariant = variant.trim();
+  if (!trimmedVariant) {
+    return res.status(400).json({ error: 'variant cannot be empty' });
+  }
+
   const providerRow = db.prepare('SELECT config FROM providers WHERE name = ?')
     .get(project.provider) as { config: string | null } | undefined;
+  if (!providerRow) {
+    return res.status(400).json({ error: 'Unknown provider' });
+  }
 
   let allowedVariants: string[] = [];
-  if (providerRow?.config) {
+  if (providerRow.config) {
     try {
       const parsed = JSON.parse(providerRow.config) as Record<string, unknown>;
       if (Array.isArray(parsed.modelVariants)) {

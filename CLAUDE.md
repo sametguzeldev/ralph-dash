@@ -43,7 +43,7 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 - **State**: TanStack React Query for all server state; auto-refetches every 3s on the dashboard
 - **API layer**: `frontend/src/lib/api.ts` — typed fetch wrapper with all interfaces and endpoint functions
 - **Routing**: React Router v6 — `/projects`, `/projects/:id` (Dashboard), `/models`, `/settings`
-- **Styling**: Tailwind CSS with dark theme by default, custom `ralph` purple color palette in `tailwind.config.ts`
+- **Styling**: Tailwind CSS with dark theme by default, custom `ralph` purple color palette in `tailwind.config.js`
 - **Responsive**: `useIsMobile()` hook; sidebar hides on mobile, shows as drawer
 
 ### Database Schema (3 tables)
@@ -54,7 +54,7 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 ### Provider Abstraction
 Providers implement a common interface (`backend/src/providers/types.ts`) with methods: `getEnvVars()`, `getCliArgs()`, `getModelVariants()`, `getAuthConfig()`, `getFilesToSync()`, `parseConfig()`. Currently only Claude is implemented. The registry (`registry.ts`) resolves providers by name. Projects reference a provider by name and a model_variant string. The processManager and skillRunner inject provider-specific env vars and CLI args when spawning processes.
 
-**Token handling**: API keys are stored in provider config and OAuth tokens are written to `~/.claude.json` with `hasCompletedOnboarding: true".
+**Token handling**: API keys are stored in provider config and OAuth tokens are written to `~/.claude.json` with `hasCompletedOnboarding: true`.
 
 ### Data Flow
 - Projects live on the host filesystem. The backend reads `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`, and `.last-branch` from each project's directory.

@@ -43,6 +43,7 @@ export function Dashboard() {
   const { data: providers } = useQuery({
     queryKey: ['models'],
     queryFn: getModels,
+    refetchInterval: 3000,
   });
 
   const providerMutation = useMutation({
