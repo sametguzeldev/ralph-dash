@@ -85,14 +85,18 @@ export function parseProgressFromDir(dir: string): ProgressData | null {
       result.startedAt = startedMatch[1]!.trim();
     }
 
-    // Extract individual entries
-    const entryRegex = /## (\d{4}-\d{2}-\d{2})\s*-\s*(US-\d+)\n([\s\S]*?)(?=\n---|\n## \d{4}|$)/g;
+    // Extract individual entries — handles both:
+    //   ## YYYY-MM-DD - US-NNN
+    //   ## YYYY-MM-DD HH:MM - Parallel wave: US-001,US-002,...
+    const entryRegex = /## (\d{4}-\d{2}-\d{2})(?:\s+\d{2}:\d{2})?\s+-\s+(.+?)\n([\s\S]*?)(?=\n---|\n## \d{4}|$)/g;
     let match;
     while ((match = entryRegex.exec(raw)) !== null) {
+      const date = match[1]!;
+      const heading = match[2]!;
       const content = match[3]!.trim();
-      const learnings: string[] = [];
 
-      // Extract learnings section
+      // Extract learnings section (shared across all story IDs in this entry)
+      const learnings: string[] = [];
       const learningsMatch = content.match(/\*\*Learnings.*?\*\*\n([\s\S]*?)(?=\n---|\n## |$)/);
       if (learningsMatch) {
         learningsMatch[1]!
@@ -101,12 +105,15 @@ export function parseProgressFromDir(dir: string): ProgressData | null {
           .forEach(line => learnings.push(line.trim().slice(2).trim()));
       }
 
-      result.entries.push({
-        date: match[1]!,
-        storyId: match[2]!,
-        content,
-        learnings,
-      });
+      // Find all US-NNN tokens in the heading (handles single IDs and parallel waves)
+      const storyIds = heading.match(/US-\d+/g);
+      if (storyIds && storyIds.length > 0) {
+        for (const storyId of storyIds) {
+          result.entries.push({ date, storyId, content, learnings });
+        }
+      } else {
+        // No US-NNN found — skip this entry (not a story entry)
+      }
     }
 
     return result;
