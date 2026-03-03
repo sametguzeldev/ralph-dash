@@ -55,15 +55,21 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
   const providerRow = db.prepare('SELECT runner_script, config, is_configured FROM providers WHERE name = ?').get(projectRow.provider) as
     { runner_script: string | null; config: string | null; is_configured: number } | undefined;
 
-  if (!providerRow?.runner_script) {
+  // If no provider row exists, the provider has never been configured at all
+  if (!providerRow) {
+    console.error(`[processManager] Provider '${projectRow.provider}' has no DB row — not configured`);
+    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please add a token on the Models page first.` };
+  }
+
+  if (!providerRow.runner_script) {
     console.error(`[processManager] Provider '${projectRow.provider}' has no runner_script configured`);
     return { ok: false, error: `Provider '${projectRow.provider}' has no runner script configured.` };
   }
 
   // Check if provider is configured (has a token) before starting a run
   if (!providerRow.is_configured) {
-    console.error(`[processManager] Provider '${projectRow.provider}' is not configured (no token)`);
-    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please add a token first.` };
+    console.error(`[processManager] Provider '${projectRow.provider}' is not configured (no token saved)`);
+    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please save an API token on the Models page first.` };
   }
 
   // Validate runner_script: must be a plain filename with no path traversal
