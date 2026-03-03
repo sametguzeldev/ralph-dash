@@ -12,6 +12,7 @@ const MODEL_VARIANTS = [
 
 export class ClaudeProvider implements Provider {
   readonly name = 'claude';
+  readonly runnerScript = 'ralph-cc.sh';
 
   getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};

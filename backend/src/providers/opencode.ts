@@ -2,6 +2,7 @@ import type { Provider, ProviderConfig } from './types.js';
 
 export class OpenCodeProvider implements Provider {
   readonly name = 'opencode';
+  readonly runnerScript = 'ralph-opencode.sh';
 
   getEnvVars(config: ProviderConfig, _modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};
