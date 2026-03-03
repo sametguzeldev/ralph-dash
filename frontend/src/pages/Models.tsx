@@ -13,6 +13,7 @@ import {
 const PROVIDER_TABS = [
   { key: 'claude', label: 'Claude' },
   { key: 'opencode', label: 'OpenCode' },
+  { key: 'codex', label: 'Codex' },
 ] as const;
 
 function formatVariantLabel(variant: string): string {
@@ -543,6 +544,223 @@ function OpenCodeTab({ provider }: { provider: ProviderResponse }) {
   );
 }
 
+function CodexTab({ provider }: { provider: ProviderResponse }) {
+  const queryClient = useQueryClient();
+  const config = provider.config as Record<string, unknown>;
+
+  // Authentication state
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Model state
+  const [selectedModel, setSelectedModel] = useState('');
+  const [modelMessage, setModelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['provider', 'codex'] });
+
+  // Token mutations
+  const tokenMutation = useMutation({
+    mutationFn: (token: string) => saveProviderToken('codex', token),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'Saved!' });
+      setApiKey('');
+      setShowKey(false);
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteProviderToken('codex'),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'Token removed' });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  // Model mutations
+  const modelSaveMutation = useMutation({
+    mutationFn: (model: string) => saveProviderModel('codex', model),
+    onSuccess: (result) => {
+      setModelMessage({ type: 'success', text: `Saved! Model: ${result.model}` });
+      setSelectedModel('');
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const modelDeleteMutation = useMutation({
+    mutationFn: () => deleteProviderModel('codex'),
+    onSuccess: () => {
+      setModelMessage({ type: 'success', text: 'Model preference removed (using default)' });
+      setSelectedModel('');
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const handleSaveToken = () => {
+    setTokenMessage(null);
+    tokenMutation.mutate(apiKey);
+  };
+
+  const handleRemoveToken = () => {
+    setTokenMessage(null);
+    deleteMutation.mutate();
+  };
+
+  const handleSaveModel = () => {
+    setModelMessage(null);
+    if (!selectedModel) {
+      setModelMessage({ type: 'error', text: 'Please select a model' });
+      return;
+    }
+    modelSaveMutation.mutate(selectedModel);
+  };
+
+  const handleRemoveModel = () => {
+    setModelMessage(null);
+    modelDeleteMutation.mutate();
+  };
+
+  const currentModel = config.model as string | undefined;
+  const modelVariants = (config.modelVariants as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-6">
+      {/* Authentication */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-300">
+            Authentication
+          </label>
+          {provider.is_configured && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              Configured
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Enter your OpenAI API key. It will be injected as both <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">CODEX_API_KEY</code> and <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">OPENAI_API_KEY</code>.
+        </p>
+
+        {provider.is_configured ? (
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm text-gray-400">Token is stored securely.</span>
+            <button
+              onClick={handleRemoveToken}
+              disabled={deleteMutation.isPending}
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {deleteMutation.isPending ? 'Removing...' : 'Remove'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                placeholder="sk-..."
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] pr-16 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300 px-2 py-1 min-h-[44px] transition-colors"
+              >
+                {showKey ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <button
+              onClick={handleSaveToken}
+              disabled={tokenMutation.isPending || !apiKey.trim()}
+              className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            >
+              {tokenMutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        )}
+
+        {tokenMessage && (
+          <p className={`mt-3 text-sm ${tokenMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {tokenMessage.text}
+          </p>
+        )}
+      </div>
+
+      {/* Model Selection */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-300">
+            Model Selection
+          </label>
+          {currentModel && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {currentModel}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Choose which Codex model to use for runs.
+        </p>
+
+        {currentModel ? (
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm text-gray-400">Current model: <span className="font-mono text-gray-200">{currentModel}</span></span>
+            <button
+              onClick={handleRemoveModel}
+              disabled={modelDeleteMutation.isPending}
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {modelDeleteMutation.isPending ? 'Removing...' : 'Reset to Default'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <select
+              value={selectedModel}
+              onChange={e => { setSelectedModel(e.target.value); setModelMessage(null); }}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+            >
+              <option value="">Select a model...</option>
+              {modelVariants.map((v: string) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleSaveModel}
+              disabled={modelSaveMutation.isPending || !selectedModel}
+              className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            >
+              {modelSaveMutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        )}
+
+        {modelMessage && (
+          <p className={`mt-3 text-sm ${modelMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {modelMessage.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Models() {
   const [activeTab, setActiveTab] = useState<string>(PROVIDER_TABS[0].key);
 
@@ -579,6 +797,7 @@ export function Models() {
         <>
           {activeTab === 'claude' && <ClaudeTab provider={provider} />}
           {activeTab === 'opencode' && <OpenCodeTab provider={provider} />}
+          {activeTab === 'codex' && <CodexTab provider={provider} />}
         </>
       ) : (
         <div className="text-sm text-red-400">Failed to load provider configuration.</div>

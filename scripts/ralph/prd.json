@@ -102,7 +102,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -120,7 +120,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -135,7 +135,7 @@
         "Typecheck passes (cd backend && npm run build)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -152,7 +152,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
