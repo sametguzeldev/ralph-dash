@@ -15,8 +15,9 @@ export class CodexProvider implements Provider {
   getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};
 
-    // Inject token as both CODEX_API_KEY and OPENAI_API_KEY
-    if (config.token) {
+    // ChatGPT mode: Codex CLI reads ~/.codex/auth.json natively — no API key injection needed.
+    // API key mode: inject token as both CODEX_API_KEY and OPENAI_API_KEY.
+    if (config.tokenType !== 'chatgpt' && config.token) {
       env.CODEX_API_KEY = config.token;
       env.OPENAI_API_KEY = config.token;
     }
@@ -41,17 +42,25 @@ export class CodexProvider implements Provider {
   getAuthConfig(config: ProviderConfig): { tokenType: string; tokenValue: string } {
     return {
       tokenType: config.tokenType ?? 'api-key',
-      tokenValue: config.token ?? '',
+      tokenValue: config.tokenType === 'chatgpt' ? '' : (config.token ?? ''),
     };
   }
 
   parseConfig(rawConfig: Record<string, unknown>): ProviderConfig {
     const token = (rawConfig.token as string) || undefined;
+    const rawTokenType = rawConfig.tokenType as string | undefined;
     const model = (rawConfig.model as string) || undefined;
+
+    let tokenType: ProviderConfig['tokenType'];
+    if (rawTokenType === 'chatgpt') {
+      tokenType = 'chatgpt';
+    } else if (token) {
+      tokenType = 'api-key';
+    }
 
     return {
       token,
-      tokenType: token ? 'api-key' : undefined,
+      tokenType,
       model,
       autoMemoryEnabled: false,
     };
