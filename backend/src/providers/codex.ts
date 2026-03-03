@@ -58,6 +58,6 @@ export class CodexProvider implements Provider {
   }
 
   getFilesToSync(_ralphPath: string): { source: string; dest: string }[] {
-    return [];
+    return [{ source: 'scripts/ralph/ralph-codex.sh', dest: 'scripts/ralph/ralph-codex.sh' }];
   }
 }
