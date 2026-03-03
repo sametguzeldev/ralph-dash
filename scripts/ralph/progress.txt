@@ -1,25 +1,31 @@
 # Ralph Progress Log
-Started: Fri Feb 27 18:53:03 UTC 2026
+Started: Tue Mar  3 08:05:17 UTC 2026
 ---
 
-## 2026-02-27 18:56 - Parallel wave: US-001,US-002
+## 2026-03-03 08:08 - Parallel wave: US-001,US-002,US-009
 - Stories ran in parallel worktrees via `claude --worktree`
 ---
 
-## 2026-02-27 19:01 - Parallel wave: US-003,US-004,US-005,US-006
+## 2026-03-03 08:13 - Parallel wave: US-003
 - Stories ran in parallel worktrees via `claude --worktree`
+- Failed to merge (will retry): US-004
 ---
 
-## 2026-02-27 - US-007
-- Added new Models/Provider API functions: getModels, getProvider, saveProviderToken, deleteProviderToken, saveProviderModel, deleteProviderModel, saveProviderPreferences
-- Added per-project provider API functions: saveProjectProvider, saveProjectModelVariant
-- Added ProviderResponse and ModelsResponse TypeScript interfaces
-- Removed old Claude-specific API functions: saveClaudeToken, deleteClaudeToken, saveClaudeModel, deleteClaudeModel, saveAutoMemory, deleteAutoMemory
-- Updated SettingsResponse to remove claudeConfigured, claudeModel, autoMemoryEnabled
-- Updated ProjectSummary to include provider and model_variant fields
-- Cleaned up Settings.tsx to remove imports/usage of deleted API functions and removed Claude Model, Authentication, and Auto-Memory UI sections (necessary for typecheck to pass)
-- Files changed: frontend/src/lib/api.ts, frontend/src/pages/Settings.tsx
+## 2026-03-03 - US-004
+- Implemented multi-provider support in models API routes
+- Files changed:
+  - `backend/src/providers/registry.ts` — added `getAllProviders()` export
+  - `backend/src/routes/models.ts` — major update for multi-provider support
+- Key changes:
+  - PUT /token: provider-aware token storage (Claude uses `claudeToken`, others use `token`); OpenCode accepts `envVarName`
+  - PUT /model: validates against `getModelVariants()` for providers with fixed lists (codex), accepts any string for providers without (opencode)
+  - Lazy provider row creation via `ensureProviderRow()` — DB rows created on first PUT instead of startup seeding
+  - GET /models returns all registered providers (including unconfigured ones with `is_configured: false`)
+  - `sanitizeProviderConfig` passes through generic `model` key alongside `claudeModel`
+  - DELETE /token and DELETE /model are provider-aware for correct config key cleanup
 - **Learnings for future iterations:**
-  - Removing API functions requires also cleaning up all consuming components to keep typecheck passing — US-007 (API removal) naturally overlaps with US-009 (Settings cleanup)
-  - Settings.tsx Claude sections were already removed as part of this story since the API functions they depended on were deleted
+  - Claude stores config with `claude`-prefixed keys (`claudeToken`, `claudeModel`); other providers use generic keys (`token`, `model`)
+  - `ensureProviderRow()` pattern: check registry first, then DB, create lazily if missing
+  - `sanitizeProviderConfig` must include all non-secret config keys the frontend needs
+  - `RUNNER_SCRIPTS` mapping in models.ts defines runner scripts for lazy row creation
 ---
