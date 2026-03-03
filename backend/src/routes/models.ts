@@ -228,11 +228,23 @@ modelsRouter.put('/:provider/token', (req, res) => {
   }
 
   // Non-claude providers: store token generically
+  // Issue 3: Reject whitespace-only tokens for non-Claude providers
+  if (!trimmed) {
+    return res.status(400).json({ error: 'token cannot be empty or whitespace-only' });
+  }
+
   const config = parseConfig(row.config);
   config.token = trimmed;
 
-  // OpenCode supports specifying the env var name
-  if (row.name === 'opencode' && envVarName && typeof envVarName === 'string') {
+  // Issue 2: OpenCode requires envVarName to be configured
+  if (row.name === 'opencode') {
+    const envVarNameValue = envVarName && typeof envVarName === 'string' ? envVarName.trim() : '';
+    if (!envVarNameValue) {
+      return res.status(400).json({ error: 'envVarName is required for OpenCode' });
+    }
+    config.envVarName = envVarNameValue;
+  } else if (row.name === 'opencode' && envVarName && typeof envVarName === 'string') {
+    // OpenCode supports specifying the env var name
     config.envVarName = envVarName.trim();
   }
 

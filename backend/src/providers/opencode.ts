@@ -46,6 +46,6 @@ export class OpenCodeProvider implements Provider {
   }
 
   getFilesToSync(_ralphPath: string): { source: string; dest: string }[] {
-    return [];
+    return [{ source: 'scripts/ralph/ralph-opencode.sh', dest: 'scripts/ralph/ralph-opencode.sh' }];
   }
 }
