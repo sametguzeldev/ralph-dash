@@ -191,9 +191,32 @@ projectsRouter.put('/:id/provider', (req, res) => {
     return res.status(400).json({ error: `Unknown provider: ${trimmed}` });
   }
 
-  // Compute default model variant from the provider's variant list
+  // Compute default model variant: prefer config.defaultVariant, fallback to first registry variant
   const variants = registeredProvider.getModelVariants();
-  const defaultVariant: string | null = variants.length > 0 ? variants[0] : null;
+  let defaultVariant: string | null = null;
+
+  if (variants.length > 0) {
+    // Check if provider has a defaultVariant in DB config
+    const row = db.prepare('SELECT config FROM providers WHERE name = ?').get(trimmed) as { config: string | null } | undefined;
+    if (row?.config) {
+      try {
+        const parsed = JSON.parse(row.config) as Record<string, unknown>;
+        if (typeof parsed.defaultVariant === 'string' && parsed.defaultVariant.trim()) {
+          defaultVariant = parsed.defaultVariant.trim();
+          // Validate the defaultVariant is in the allowed variants list
+          if (!variants.includes(defaultVariant)) {
+            defaultVariant = variants[0];
+          }
+        } else {
+          defaultVariant = variants[0];
+        }
+      } catch {
+        defaultVariant = variants[0];
+      }
+    } else {
+      defaultVariant = variants[0];
+    }
+  }
 
   // Update provider and reset model_variant to the provider's default
   db.prepare('UPDATE projects SET provider = ?, model_variant = ? WHERE id = ?')

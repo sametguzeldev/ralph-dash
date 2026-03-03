@@ -173,12 +173,21 @@ modelsRouter.get('/:provider', (req, res) => {
     // Virtual unconfigured entry
     return res.json(buildVirtualProviderRow(req.params.provider));
   }
+
+  // Registered and has DB row — include modelVariants from registry
+  const config = sanitizeProviderConfig(row.config);
+  const provider = getProvider(row.name);
+  const variants = provider.getModelVariants();
+  if (variants.length > 0) {
+    config.modelVariants = variants;
+  }
+
   res.json({
     id: row.id,
     name: row.name,
     runner_script: row.runner_script,
     is_configured: !!row.is_configured,
-    config: sanitizeProviderConfig(row.config),
+    config,
   });
 });
 
