@@ -45,6 +45,8 @@ interface ModelSectionConfig {
   customModelPlaceholder?: string;
   /** Function to format model variant labels */
   formatLabel?: (variant: string) => string;
+  /** Key to use for reading model from config (default: 'model') */
+  modelKey?: string;
 }
 
 /** Configuration for a provider's preferences section */
@@ -201,7 +203,8 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
     modelDeleteMutation.mutate();
   };
 
-  const currentModel = config_data.model as string | undefined;
+  const modelKey = config.model.modelKey || 'model';
+  const currentModel = config_data[modelKey] as string | undefined;
   const modelVariants = (config_data.modelVariants as string[] | undefined) ?? [];
   const formatLabel = config.model.formatLabel || formatVariantLabel;
 
@@ -419,6 +422,7 @@ const CLAUDE_CONFIG: ProviderTabConfig = {
     hasCustomModel: true,
     resetToDefault: true,
     customModelPlaceholder: 'e.g., claude-sonnet-4-6',
+    modelKey: 'claudeModel',
   },
   preferences: {
     hasPreferences: true,
@@ -431,6 +435,7 @@ const CLAUDE_CONFIG: ProviderTabConfig = {
 const OPENCODE_CONFIG: ProviderTabConfig = {
   providerName: 'opencode',
   auth: {
+    extraFields: true,
     helpText: (
       <p className="text-xs text-gray-500 mb-4">
         Enter the environment variable name and API key for your OpenCode-compatible provider.
