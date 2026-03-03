@@ -1,6 +1,7 @@
 import type { Provider, ProviderConfig } from './types.js';
 import { ClaudeProvider } from './claude.js';
 import { CodexProvider } from './codex.js';
+import { OpenCodeProvider } from './opencode.js';
 import { db } from '../db/connection.js';
 
 export const DEFAULT_PROVIDER = 'claude';
@@ -14,6 +15,7 @@ function register(provider: Provider): void {
 // Register built-in providers
 register(new ClaudeProvider());
 register(new CodexProvider());
+register(new OpenCodeProvider());
 
 /**
  * Get a provider by name.
