@@ -113,13 +113,21 @@ modelsRouter.get('/', (_req, res) => {
   const registered = getAllProviders();
   const result = registered.map((provider) => {
     const row = rowMap.get(provider.name);
+    const config = row ? sanitizeProviderConfig(row.config) : sanitizeProviderConfig(null);
+
+    // Always include modelVariants from the registry so the frontend can render dropdowns
+    const variants = provider.getModelVariants();
+    if (variants.length > 0) {
+      config.modelVariants = variants;
+    }
+
     if (row) {
       return {
         id: row.id,
         name: row.name,
         runner_script: row.runner_script,
         is_configured: !!row.is_configured,
-        config: sanitizeProviderConfig(row.config),
+        config,
       };
     }
     // Registered but not yet in DB — return virtual unconfigured entry
@@ -128,7 +136,7 @@ modelsRouter.get('/', (_req, res) => {
       name: provider.name,
       runner_script: RUNNER_SCRIPTS[provider.name] || null,
       is_configured: false,
-      config: sanitizeProviderConfig(null),
+      config,
     };
   });
 
