@@ -7,7 +7,7 @@ import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
 import { getRunStatus, stopRun } from '../services/processManager.js';
 import { detectWorkflowStep } from '../services/workflowDetector.js';
-import { DEFAULT_PROVIDER } from '../providers/registry.js';
+import { DEFAULT_PROVIDER, getProvider } from '../providers/registry.js';
 import type { ProjectRow } from '../db/types.js';
 
 export const projectsRouter = Router();
@@ -183,22 +183,17 @@ projectsRouter.put('/:id/provider', (req, res) => {
 
   const trimmed = provider.trim();
 
-  // Validate provider exists in providers table
-  const providerRow = db.prepare('SELECT * FROM providers WHERE name = ?').get(trimmed) as { name: string; config: string | null } | undefined;
-  if (!providerRow) {
+  // Validate provider exists in the registry
+  let registeredProvider;
+  try {
+    registeredProvider = getProvider(trimmed);
+  } catch {
     return res.status(400).json({ error: `Unknown provider: ${trimmed}` });
   }
 
-  // Get default model variant from provider config
-  let defaultVariant: string | null = null;
-  if (providerRow.config) {
-    try {
-      const config = JSON.parse(providerRow.config);
-      defaultVariant = config.defaultVariant || null;
-    } catch {
-      return res.status(500).json({ error: `Invalid config for provider '${trimmed}'` });
-    }
-  }
+  // Compute default model variant from the provider's variant list
+  const variants = registeredProvider.getModelVariants();
+  const defaultVariant: string | null = variants.length > 0 ? variants[0] : null;
 
   // Update provider and reset model_variant to the provider's default
   db.prepare('UPDATE projects SET provider = ?, model_variant = ? WHERE id = ?')
@@ -230,24 +225,15 @@ projectsRouter.put('/:id/model-variant', (req, res) => {
     return res.status(400).json({ error: 'variant cannot be empty' });
   }
 
-  const providerRow = db.prepare('SELECT config FROM providers WHERE name = ?')
-    .get(project.provider) as { config: string | null } | undefined;
-  if (!providerRow) {
+  // Validate variant against the provider's registry variant list
+  let registeredProvider;
+  try {
+    registeredProvider = getProvider(project.provider);
+  } catch {
     return res.status(400).json({ error: 'Unknown provider' });
   }
 
-  let allowedVariants: string[] = [];
-  if (providerRow.config) {
-    try {
-      const parsed = JSON.parse(providerRow.config) as Record<string, unknown>;
-      if (Array.isArray(parsed.modelVariants)) {
-        allowedVariants = parsed.modelVariants.filter((v): v is string => typeof v === 'string');
-      }
-    } catch {
-      return res.status(500).json({ error: `Invalid config for provider '${project.provider}'` });
-    }
-  }
-
+  const allowedVariants = registeredProvider.getModelVariants();
   if (allowedVariants.length > 0 && !allowedVariants.includes(trimmedVariant)) {
     return res.status(400).json({ error: `Invalid variant '${trimmedVariant}' for provider '${project.provider}'. Allowed: ${allowedVariants.join(', ')}` });
   }
