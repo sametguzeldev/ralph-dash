@@ -75,10 +75,10 @@ export function getProvider(name: string) {
   return request<ProviderResponse>(`/models/${name}`);
 }
 
-export function saveProviderToken(provider: string, token: string) {
+export function saveProviderToken(provider: string, token: string, envVarName?: string) {
   return request<{ success: boolean; tokenType: 'api-key' | 'oauth' }>(`/models/${provider}/token`, {
     method: 'PUT',
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, ...(envVarName ? { envVarName } : {}) }),
   });
 }
 
