@@ -82,6 +82,13 @@ export function saveProviderToken(provider: string, token: string, envVarName?: 
   });
 }
 
+export function saveCodexChatGptAuth() {
+  return request<{ success: boolean; tokenType: 'chatgpt' }>('/models/codex/token', {
+    method: 'PUT',
+    body: JSON.stringify({ tokenType: 'chatgpt' }),
+  });
+}
+
 export function deleteProviderToken(provider: string) {
   return request<{ success: boolean }>(`/models/${provider}/token`, {
     method: 'DELETE',

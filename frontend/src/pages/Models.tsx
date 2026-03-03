@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getProvider,
   saveProviderToken,
+  saveCodexChatGptAuth,
   deleteProviderToken,
   saveProviderModel,
   deleteProviderModel,
@@ -448,21 +449,240 @@ const OPENCODE_CONFIG: ProviderTabConfig = {
   },
 };
 
-const CODEX_CONFIG: ProviderTabConfig = {
-  providerName: 'codex',
-  auth: {
-    tokenPlaceholder: 'sk-...',
-    helpText: (
-      <p className="text-xs text-gray-500 mb-4">
-        Enter your OpenAI API key. It will be injected as both <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">CODEX_API_KEY</code> and <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">OPENAI_API_KEY</code>.
-      </p>
-    ),
-  },
-  model: {
-    hasModelDropdown: true,
-    resetToDefault: true,
-  },
-};
+function CodexProviderTab({ provider }: { provider: ProviderResponse }) {
+  const queryClient = useQueryClient();
+  const config_data = provider.config as Record<string, unknown>;
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['provider', 'codex'] });
+
+  const currentTokenType = config_data.tokenType as string | undefined;
+
+  // Auth state
+  const [authMode, setAuthMode] = useState<'api-key' | 'chatgpt'>('chatgpt');
+  const [token, setToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Model state
+  const [model, setModel] = useState('');
+  const [modelMessage, setModelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const currentModel = config_data.model as string | undefined;
+  const modelVariants = (config_data.modelVariants as string[] | undefined) ?? [];
+
+  const chatGptMutation = useMutation({
+    mutationFn: () => saveCodexChatGptAuth(),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'ChatGPT auth activated via ~/.codex/auth.json' });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const apiKeyMutation = useMutation({
+    mutationFn: (t: string) => saveProviderToken('codex', t),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'API key saved' });
+      setToken('');
+      setShowToken(false);
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteProviderToken('codex'),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'Auth removed' });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const modelSaveMutation = useMutation({
+    mutationFn: (m: string) => saveProviderModel('codex', m),
+    onSuccess: (result) => {
+      setModelMessage({ type: 'success', text: `Saved! Model: ${result.model}` });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const modelDeleteMutation = useMutation({
+    mutationFn: () => deleteProviderModel('codex'),
+    onSuccess: () => {
+      setModelMessage({ type: 'success', text: 'Model preference removed (using default)' });
+      setModel('');
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Authentication Section */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-300">Authentication</label>
+          {provider.is_configured && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              Configured
+            </span>
+          )}
+        </div>
+
+        {provider.is_configured ? (
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm text-gray-400">
+              {currentTokenType === 'chatgpt'
+                ? 'Using ChatGPT auth via ~/.codex/auth.json'
+                : 'API key stored securely'}
+            </span>
+            <button
+              onClick={() => { setTokenMessage(null); deleteMutation.mutate(); }}
+              disabled={deleteMutation.isPending}
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {deleteMutation.isPending ? 'Removing...' : 'Remove'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Auth mode toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setAuthMode('chatgpt'); setTokenMessage(null); }}
+                className={`px-4 py-2 text-sm rounded-lg border transition-colors ${authMode === 'chatgpt' ? 'border-ralph-500 bg-ralph-500/10 text-ralph-300' : 'border-gray-700 text-gray-500 hover:text-gray-300'}`}
+              >
+                ChatGPT
+              </button>
+              <button
+                onClick={() => { setAuthMode('api-key'); setTokenMessage(null); }}
+                className={`px-4 py-2 text-sm rounded-lg border transition-colors ${authMode === 'api-key' ? 'border-ralph-500 bg-ralph-500/10 text-ralph-300' : 'border-gray-700 text-gray-500 hover:text-gray-300'}`}
+              >
+                API Key
+              </button>
+            </div>
+
+            {authMode === 'chatgpt' ? (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  Uses your existing ChatGPT session from <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">~/.codex/auth.json</code>. Run <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">codex</code> in a terminal first to authenticate.
+                </p>
+                <button
+                  onClick={() => { setTokenMessage(null); chatGptMutation.mutate(); }}
+                  disabled={chatGptMutation.isPending}
+                  className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {chatGptMutation.isPending ? 'Verifying...' : 'Use ChatGPT Auth'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  Enter your OpenAI API key. It will be injected as both <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">CODEX_API_KEY</code> and <code className="text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">OPENAI_API_KEY</code>.
+                </p>
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <input
+                      type={showToken ? 'text' : 'password'}
+                      value={token}
+                      onChange={e => setToken(e.target.value)}
+                      placeholder="sk-..."
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] pr-16 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowToken(!showToken)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300 px-2 py-1 min-h-[44px] transition-colors"
+                    >
+                      {showToken ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { setTokenMessage(null); apiKeyMutation.mutate(token); }}
+                    disabled={apiKeyMutation.isPending || !token.trim()}
+                    className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {apiKeyMutation.isPending ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tokenMessage && (
+          <p className={`mt-3 text-sm ${tokenMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {tokenMessage.text}
+          </p>
+        )}
+      </div>
+
+      {/* Model Selection Section */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-300">Model Selection</label>
+          {currentModel && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {currentModel}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">Choose which model to use for skill runs and Ralph iterations.</p>
+
+        {currentModel ? (
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm text-gray-400">Current model: <span className="font-mono text-gray-200">{currentModel}</span></span>
+            <button
+              onClick={() => { setModelMessage(null); modelDeleteMutation.mutate(); }}
+              disabled={modelDeleteMutation.isPending}
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {modelDeleteMutation.isPending ? 'Removing...' : 'Reset to Default'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <select
+              value={model}
+              onChange={e => { setModel(e.target.value); setModelMessage(null); }}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+            >
+              <option value="">Select a model...</option>
+              {modelVariants.map((v: string) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => { setModelMessage(null); if (model) modelSaveMutation.mutate(model); }}
+              disabled={modelSaveMutation.isPending || !model}
+              className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            >
+              {modelSaveMutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        )}
+
+        {modelMessage && (
+          <p className={`mt-3 text-sm ${modelMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {modelMessage.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function Models() {
   const [activeTab, setActiveTab] = useState<string>(PROVIDER_TABS[0].key);
@@ -500,7 +720,7 @@ export function Models() {
         <>
           {activeTab === 'claude' && <ProviderTab key="claude" provider={provider} config={CLAUDE_CONFIG} />}
           {activeTab === 'opencode' && <ProviderTab key="opencode" provider={provider} config={OPENCODE_CONFIG} />}
-          {activeTab === 'codex' && <ProviderTab key="codex" provider={provider} config={CODEX_CONFIG} />}
+          {activeTab === 'codex' && <CodexProviderTab key="codex" provider={provider} />}
         </>
       ) : (
         <div className="text-sm text-red-400">Failed to load provider configuration.</div>

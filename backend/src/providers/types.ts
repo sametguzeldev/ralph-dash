@@ -3,7 +3,7 @@
  */
 export interface ProviderConfig {
   token?: string;
-  tokenType?: 'oauth' | 'api-key';
+  tokenType?: 'oauth' | 'api-key' | 'chatgpt';
   model?: string;
   autoMemoryEnabled: boolean;
   /** Environment variable name used to inject the API key (e.g. 'OPENAI_API_KEY'). */

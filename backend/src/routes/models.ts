@@ -125,6 +125,11 @@ function sanitizeProviderConfig(raw: string | null): Record<string, unknown> {
     safe.envVarName = config.envVarName;
   }
 
+  // Expose tokenType so the frontend knows which auth mode is active (e.g. 'chatgpt' vs 'api-key')
+  if (typeof config.tokenType === 'string' && config.tokenType.trim()) {
+    safe.tokenType = config.tokenType;
+  }
+
   return safe;
 }
 
@@ -198,7 +203,33 @@ modelsRouter.put('/:provider/token', (req, res) => {
     return res.status(404).json({ error: 'Provider not found' });
   }
 
-  const { token, envVarName } = req.body;
+  const { token, tokenType, envVarName } = req.body;
+
+  // Codex ChatGPT mode: no API key needed — verify ~/.codex/auth.json is present
+  if (row.name === 'codex' && tokenType === 'chatgpt') {
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '/home/node';
+    const authJsonPath = path.join(homeDir, '.codex', 'auth.json');
+    let authJson: Record<string, unknown>;
+    try {
+      authJson = JSON.parse(fs.readFileSync(authJsonPath, 'utf-8'));
+    } catch {
+      return res.status(400).json({
+        error: '~/.codex/auth.json not found. Run `codex` first to authenticate via ChatGPT.',
+      });
+    }
+    if (authJson.auth_mode !== 'chatgpt') {
+      return res.status(400).json({
+        error: `~/.codex/auth.json has auth_mode="${authJson.auth_mode}", not "chatgpt". Re-authenticate with ChatGPT.`,
+      });
+    }
+    const config = parseConfig(row.config);
+    delete config.token;
+    config.tokenType = 'chatgpt';
+    db.prepare('UPDATE providers SET is_configured = 1, config = ? WHERE name = ?')
+      .run(JSON.stringify(config), row.name);
+    return res.json({ success: true, tokenType: 'chatgpt' });
+  }
+
   if (!token || typeof token !== 'string') {
     return res.status(400).json({ error: 'token is required' });
   }
@@ -276,6 +307,7 @@ modelsRouter.delete('/:provider/token', (req, res) => {
     }
   } else {
     delete config.token;
+    delete config.tokenType;
 
     db.prepare('UPDATE providers SET is_configured = 0, config = ? WHERE name = ?')
       .run(JSON.stringify(config), row.name);
