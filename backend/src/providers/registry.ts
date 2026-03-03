@@ -56,16 +56,23 @@ export function loadProviderConfig(providerName: string): ProviderConfig {
 /**
  * Build environment variables for spawning a provider-backed process.
  * Clones process.env, strips CLAUDECODE, injects provider env vars and git identity.
+ * @param providerName  Provider name (e.g., 'claude', 'codex')
+ * @param modelVariant  Optional model variant override
+ * @param providerConfig  Optional pre-loaded provider config (avoids redundant DB query)
  */
-export function buildRunEnv(providerName: string, modelVariant?: string): Record<string, string | undefined> {
+export function buildRunEnv(
+  providerName: string,
+  modelVariant?: string,
+  providerConfig?: ProviderConfig
+): Record<string, string | undefined> {
   const provider = getProvider(providerName);
-  const providerConfig = loadProviderConfig(providerName);
+  const config = providerConfig ?? loadProviderConfig(providerName);
 
   const env = { ...process.env };
   delete env.CLAUDECODE;
 
   // Inject provider env vars (auth token, model, etc.) — skip vars already set
-  const providerEnv = provider.getEnvVars(providerConfig, modelVariant);
+  const providerEnv = provider.getEnvVars(config, modelVariant);
   for (const [key, value] of Object.entries(providerEnv)) {
     if (!env[key]) {
       env[key] = value;

@@ -18,6 +18,9 @@ export interface Provider {
   /** Unique provider identifier (e.g. 'claude') */
   readonly name: string;
 
+  /** Path to the runner script for this provider (relative to project scripts/ralph/). */
+  readonly runnerScript: string;
+
   /**
    * Build environment variables to inject when spawning a process.
    * @param config  Settings read from the DB

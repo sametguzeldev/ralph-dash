@@ -10,6 +10,7 @@ const MODEL_VARIANTS = [
 
 export class CodexProvider implements Provider {
   readonly name = 'codex';
+  readonly runnerScript = 'ralph-codex.sh';
 
   getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};

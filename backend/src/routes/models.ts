@@ -7,14 +7,37 @@ import { getProvider, getAllProviders } from '../providers/registry.js';
 
 export const modelsRouter = Router();
 
-const RUNNER_SCRIPTS: Record<string, string> = {
-  claude: 'ralph-cc.sh',
-  codex: 'ralph-codex.sh',
-  opencode: 'ralph-opencode.sh',
-};
-
 function getProviderRow(name: string): ProviderRow | undefined {
   return db.prepare('SELECT * FROM providers WHERE name = ?').get(name) as ProviderRow | undefined;
+}
+
+/**
+ * Build a default provider response object (for virtual/unconfigured entries).
+ * Used by both GET /models and GET /models/:provider for unregistered providers.
+ */
+function buildVirtualProviderRow(providerName: string): {
+  id: number;
+  name: string;
+  runner_script: string | null;
+  is_configured: false;
+  config: Record<string, unknown>;
+} {
+  const provider = getProvider(providerName);
+  const config = sanitizeProviderConfig(null);
+
+  // Always include modelVariants from the registry so the frontend can render dropdowns
+  const variants = provider.getModelVariants();
+  if (variants.length > 0) {
+    config.modelVariants = variants;
+  }
+
+  return {
+    id: 0,
+    name: provider.name,
+    runner_script: provider.runnerScript,
+    is_configured: false,
+    config,
+  };
 }
 
 /**
@@ -33,9 +56,9 @@ function ensureProviderRow(providerName: string): ProviderRow | undefined {
   if (existing) return existing;
 
   // Create lazily on first configuration attempt
-  const runnerScript = RUNNER_SCRIPTS[providerName] || `ralph-${providerName}.sh`;
+  const provider = getProvider(providerName);
   db.prepare('INSERT INTO providers (name, runner_script, is_configured, config) VALUES (?, ?, 0, ?)')
-    .run(providerName, runnerScript, '{}');
+    .run(providerName, provider.runnerScript, '{}');
 
   return getProviderRow(providerName)!;
 }
@@ -113,15 +136,15 @@ modelsRouter.get('/', (_req, res) => {
   const registered = getAllProviders();
   const result = registered.map((provider) => {
     const row = rowMap.get(provider.name);
-    const config = row ? sanitizeProviderConfig(row.config) : sanitizeProviderConfig(null);
-
-    // Always include modelVariants from the registry so the frontend can render dropdowns
-    const variants = provider.getModelVariants();
-    if (variants.length > 0) {
-      config.modelVariants = variants;
-    }
 
     if (row) {
+      // Registered and has DB row — use stored config
+      const config = sanitizeProviderConfig(row.config);
+      // Always include modelVariants from the registry so the frontend can render dropdowns
+      const variants = provider.getModelVariants();
+      if (variants.length > 0) {
+        config.modelVariants = variants;
+      }
       return {
         id: row.id,
         name: row.name,
@@ -131,13 +154,7 @@ modelsRouter.get('/', (_req, res) => {
       };
     }
     // Registered but not yet in DB — return virtual unconfigured entry
-    return {
-      id: 0,
-      name: provider.name,
-      runner_script: RUNNER_SCRIPTS[provider.name] || null,
-      is_configured: false,
-      config,
-    };
+    return buildVirtualProviderRow(provider.name);
   });
 
   res.json(result);
@@ -153,13 +170,8 @@ modelsRouter.get('/:provider', (req, res) => {
     } catch {
       return res.status(404).json({ error: 'Provider not found' });
     }
-    return res.json({
-      id: 0,
-      name: req.params.provider,
-      runner_script: RUNNER_SCRIPTS[req.params.provider] || null,
-      is_configured: false,
-      config: sanitizeProviderConfig(null),
-    });
+    // Virtual unconfigured entry
+    return res.json(buildVirtualProviderRow(req.params.provider));
   }
   res.json({
     id: row.id,
