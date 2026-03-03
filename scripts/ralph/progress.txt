@@ -29,3 +29,23 @@ Started: Tue Mar  3 08:05:17 UTC 2026
   - `sanitizeProviderConfig` must include all non-secret config keys the frontend needs
   - `RUNNER_SCRIPTS` mapping in models.ts defines runner scripts for lazy row creation
 ---
+
+## 2026-03-03 08:23 - Parallel wave: US-005,US-006,US-007
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-03-03 - US-008
+- Added Codex tab to the Models page alongside Claude and OpenCode
+- Files changed:
+  - `frontend/src/pages/Models.tsx` — added CodexTab component and wired it into PROVIDER_TABS
+- Key changes:
+  - Authentication section: simple password input for API key (no env var name input since Codex uses fixed CODEX_API_KEY + OPENAI_API_KEY)
+  - Model section: dropdown populated from `provider.config.modelVariants` (fixed list of 5 Codex models)
+  - No Auto Memory preferences section (Codex doesn't support it)
+  - Follows same mutation/invalidation pattern as OpenCodeTab and ClaudeTab
+- **Learnings for future iterations:**
+  - Each provider tab is a self-contained component with its own state and mutations — copy the closest existing tab as a template
+  - Codex uses `config.model` (generic key) not `config.claudeModel` for the current model display
+  - `config.modelVariants` is populated by the backend provider's `getModelVariants()` and available in the sanitized config
+  - Providers with fixed model lists use `<select>` dropdowns; providers with freeform use `<input>` text fields
+---
