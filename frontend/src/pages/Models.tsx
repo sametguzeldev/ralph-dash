@@ -10,7 +10,10 @@ import {
   type ProviderResponse,
 } from '../lib/api';
 
-const PROVIDER_TABS = [{ key: 'claude', label: 'Claude' }] as const;
+const PROVIDER_TABS = [
+  { key: 'claude', label: 'Claude' },
+  { key: 'opencode', label: 'OpenCode' },
+] as const;
 
 function formatVariantLabel(variant: string): string {
   if (variant.includes('opus')) return 'Opus';
@@ -304,6 +307,242 @@ function ClaudeTab({ provider }: { provider: ProviderResponse }) {
   );
 }
 
+function OpenCodeTab({ provider }: { provider: ProviderResponse }) {
+  const queryClient = useQueryClient();
+  const config = provider.config as Record<string, unknown>;
+
+  // Authentication state
+  const [envVarName, setEnvVarName] = useState((config.envVarName as string) || '');
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Model state
+  const [modelInput, setModelInput] = useState('');
+  const [modelMessage, setModelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setEnvVarName((provider.config as Record<string, unknown>).envVarName as string || '');
+  }, [provider]);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['provider', 'opencode'] });
+
+  // Token mutations
+  const tokenMutation = useMutation({
+    mutationFn: ({ token, varName }: { token: string; varName: string }) =>
+      saveProviderToken('opencode', token, varName || undefined),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'Saved!' });
+      setApiKey('');
+      setShowKey(false);
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteProviderToken('opencode'),
+    onSuccess: () => {
+      setTokenMessage({ type: 'success', text: 'Token removed' });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setTokenMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  // Model mutations
+  const modelSaveMutation = useMutation({
+    mutationFn: (model: string) => saveProviderModel('opencode', model),
+    onSuccess: (result) => {
+      setModelMessage({ type: 'success', text: `Saved! Model: ${result.model}` });
+      setModelInput('');
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const modelDeleteMutation = useMutation({
+    mutationFn: () => deleteProviderModel('opencode'),
+    onSuccess: () => {
+      setModelMessage({ type: 'success', text: 'Model removed' });
+      setModelInput('');
+      invalidate();
+    },
+    onError: (err: Error) => {
+      setModelMessage({ type: 'error', text: err.message });
+    },
+  });
+
+  const handleSaveToken = () => {
+    setTokenMessage(null);
+    tokenMutation.mutate({ token: apiKey, varName: envVarName });
+  };
+
+  const handleRemoveToken = () => {
+    setTokenMessage(null);
+    deleteMutation.mutate();
+  };
+
+  const handleSaveModel = () => {
+    setModelMessage(null);
+    if (!modelInput.trim()) {
+      setModelMessage({ type: 'error', text: 'Please enter a model identifier' });
+      return;
+    }
+    modelSaveMutation.mutate(modelInput.trim());
+  };
+
+  const handleRemoveModel = () => {
+    setModelMessage(null);
+    modelDeleteMutation.mutate();
+  };
+
+  const currentModel = config.model as string | undefined;
+
+  return (
+    <div className="space-y-6">
+      {/* Authentication */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-300">
+            Authentication
+          </label>
+          {provider.is_configured && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              Configured
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Enter the environment variable name and API key for your OpenCode-compatible provider.
+        </p>
+
+        {provider.is_configured ? (
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm text-gray-400">
+              Token is stored securely.
+              {typeof config.envVarName === 'string' && config.envVarName && (
+                <> Env var: <span className="font-mono text-gray-200">{config.envVarName}</span></>
+              )}
+            </span>
+            <button
+              onClick={handleRemoveToken}
+              disabled={deleteMutation.isPending}
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {deleteMutation.isPending ? 'Removing...' : 'Remove'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Environment Variable Name</label>
+              <input
+                type="text"
+                value={envVarName}
+                onChange={e => setEnvVarName(e.target.value)}
+                placeholder="e.g., OPENAI_API_KEY"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+              />
+            </div>
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  placeholder="API key value"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] pr-16 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-300 px-2 py-1 min-h-[44px] transition-colors"
+                >
+                  {showKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <button
+                onClick={handleSaveToken}
+                disabled={tokenMutation.isPending || !apiKey.trim()}
+                className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              >
+                {tokenMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tokenMessage && (
+          <p className={`mt-3 text-sm ${tokenMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {tokenMessage.text}
+          </p>
+        )}
+      </div>
+
+      {/* Model */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-300">
+            Model
+          </label>
+          {currentModel && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {currentModel}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Enter the model identifier to use with OpenCode (e.g., gpt-4o, o3, etc.).
+        </p>
+
+        {currentModel ? (
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm text-gray-400">Current model: <span className="font-mono text-gray-200">{currentModel}</span></span>
+            <button
+              onClick={handleRemoveModel}
+              disabled={modelDeleteMutation.isPending}
+              className="px-3 py-1.5 min-h-[44px] text-sm text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {modelDeleteMutation.isPending ? 'Removing...' : 'Remove'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col md:flex-row gap-3">
+            <input
+              type="text"
+              value={modelInput}
+              onChange={e => { setModelInput(e.target.value); setModelMessage(null); }}
+              placeholder="e.g., gpt-4o"
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500 font-mono"
+            />
+            <button
+              onClick={handleSaveModel}
+              disabled={modelSaveMutation.isPending || !modelInput.trim()}
+              className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            >
+              {modelSaveMutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        )}
+
+        {modelMessage && (
+          <p className={`mt-3 text-sm ${modelMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {modelMessage.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Models() {
   const [activeTab, setActiveTab] = useState<string>(PROVIDER_TABS[0].key);
 
@@ -337,7 +576,10 @@ export function Models() {
       {isLoading ? (
         <div className="text-sm text-gray-500">Loading...</div>
       ) : provider ? (
-        activeTab === 'claude' && <ClaudeTab provider={provider} />
+        <>
+          {activeTab === 'claude' && <ClaudeTab provider={provider} />}
+          {activeTab === 'opencode' && <OpenCodeTab provider={provider} />}
+        </>
       ) : (
         <div className="text-sm text-red-400">Failed to load provider configuration.</div>
       )}
