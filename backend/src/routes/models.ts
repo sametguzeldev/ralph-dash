@@ -62,6 +62,10 @@ function sanitizeProviderConfig(raw: string | null): Record<string, unknown> {
     safe.preferences = {};
   }
 
+  if (typeof config.envVarName === 'string' && config.envVarName.trim()) {
+    safe.envVarName = config.envVarName;
+  }
+
   return safe;
 }
 

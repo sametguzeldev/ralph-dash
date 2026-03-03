@@ -6,6 +6,8 @@ export interface ProviderConfig {
   tokenType?: 'oauth' | 'api-key';
   model?: string;
   autoMemoryEnabled: boolean;
+  /** Environment variable name used to inject the API key (e.g. 'OPENAI_API_KEY'). */
+  envVarName?: string;
 }
 
 /**
