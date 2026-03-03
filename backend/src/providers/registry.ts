@@ -30,6 +30,13 @@ export function getProvider(name: string): Provider {
 }
 
 /**
+ * Return all registered providers.
+ */
+export function getAllProviders(): Provider[] {
+  return Array.from(providers.values());
+}
+
+/**
  * Load and parse provider config from DB.
  */
 export function loadProviderConfig(providerName: string): ProviderConfig {
