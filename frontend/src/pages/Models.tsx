@@ -498,9 +498,9 @@ export function Models() {
         <div className="text-sm text-gray-500">Loading...</div>
       ) : provider ? (
         <>
-          {activeTab === 'claude' && <ProviderTab provider={provider} config={CLAUDE_CONFIG} />}
-          {activeTab === 'opencode' && <ProviderTab provider={provider} config={OPENCODE_CONFIG} />}
-          {activeTab === 'codex' && <ProviderTab provider={provider} config={CODEX_CONFIG} />}
+          {activeTab === 'claude' && <ProviderTab key="claude" provider={provider} config={CLAUDE_CONFIG} />}
+          {activeTab === 'opencode' && <ProviderTab key="opencode" provider={provider} config={OPENCODE_CONFIG} />}
+          {activeTab === 'codex' && <ProviderTab key="codex" provider={provider} config={CODEX_CONFIG} />}
         </>
       ) : (
         <div className="text-sm text-red-400">Failed to load provider configuration.</div>
