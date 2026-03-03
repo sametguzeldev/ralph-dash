@@ -107,6 +107,13 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
     }
   }, [provider, hasPreferences, config.preferences?.preferenceKey]);
 
+  useEffect(() => {
+    if (hasExtraField) {
+      const envVarName = typeof config_data.envVarName === 'string' ? config_data.envVarName : '';
+      setExtraFieldValue(envVarName);
+    }
+  }, [provider, hasExtraField]);
+
   // Token mutations
   const tokenMutation = useMutation({
     mutationFn: (tokenValue: string) => {

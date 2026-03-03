@@ -266,6 +266,7 @@ modelsRouter.put('/:provider/token', (req, res) => {
 
   const config = parseConfig(row.config);
   config.token = trimmed;
+  config.tokenType = 'api-key';
 
   // Issue 2: OpenCode requires envVarName to be configured
   if (row.name === 'opencode') {
@@ -274,9 +275,6 @@ modelsRouter.put('/:provider/token', (req, res) => {
       return res.status(400).json({ error: 'envVarName is required for OpenCode' });
     }
     config.envVarName = envVarNameValue;
-  } else if (row.name === 'opencode' && envVarName && typeof envVarName === 'string') {
-    // OpenCode supports specifying the env var name
-    config.envVarName = envVarName.trim();
   }
 
   db.prepare('UPDATE providers SET is_configured = 1, config = ? WHERE name = ?')
