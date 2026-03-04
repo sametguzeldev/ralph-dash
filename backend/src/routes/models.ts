@@ -274,6 +274,9 @@ modelsRouter.put('/:provider/token', (req, res) => {
     if (!envVarNameValue) {
       return res.status(400).json({ error: 'envVarName is required for OpenCode' });
     }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(envVarNameValue)) {
+      return res.status(400).json({ error: 'envVarName must be a valid environment variable name (letters, digits, underscores; must not start with a digit)' });
+    }
     config.envVarName = envVarNameValue;
   }
 
@@ -373,7 +376,7 @@ modelsRouter.delete('/:provider/model', (req, res) => {
 
 // PUT /api/models/:provider/preferences — save provider-specific behavioral preferences
 modelsRouter.put('/:provider/preferences', (req, res) => {
-  const row = getProviderRow(req.params.provider);
+  const row = ensureProviderRow(req.params.provider);
   if (!row) {
     return res.status(404).json({ error: 'Provider not found' });
   }

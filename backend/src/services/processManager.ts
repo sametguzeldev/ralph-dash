@@ -64,7 +64,7 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
   // Check if provider is configured (has a token) before starting a run
   if (!providerRow.is_configured) {
     console.error(`[processManager] Provider '${projectRow.provider}' is not configured (no token saved)`);
-    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please save an API token on the Models page first.` };
+    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please configure authentication on the Models page first.` };
   }
 
   // Validate runner_script: must be a plain filename with no path traversal
