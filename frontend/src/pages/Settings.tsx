@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSettings, updateSettings, saveGitConfig, deleteGitConfig, getModels } from '../lib/api';
 
@@ -135,6 +135,30 @@ export function Settings() {
     mutation.mutate(ralphPath);
   };
 
+  const filePreview = useMemo(() => {
+    const paths = new Set<string>();
+
+    for (const provName of selectedProviders) {
+      const skillsDir = provName === 'codex' ? '.agents/skills' : '.claude/skills';
+      for (const skill of selectedSkills) {
+        paths.add(`${skillsDir}/${skill}/SKILL.md`);
+      }
+    }
+
+    if (selectedProviders.includes('claude')) {
+      paths.add('scripts/ralph/CLAUDE.md');
+    }
+
+    for (const provName of selectedProviders) {
+      const provider = models?.find(m => m.name === provName);
+      if (provider?.runner_script) {
+        paths.add(`scripts/ralph/${provider.runner_script}`);
+      }
+    }
+
+    return [...paths].sort();
+  }, [selectedProviders, selectedSkills, models]);
+
   return (
     <div className="md:max-w-2xl">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
@@ -228,6 +252,24 @@ export function Settings() {
               </label>
             ))}
           </div>
+        </div>
+
+        <div className="mt-6 border-t border-gray-800 pt-4">
+          <h3 className="text-sm font-medium text-gray-300 mb-2">Files to Sync</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            These files will be copied to each project when syncing.
+          </p>
+          {filePreview.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">No files to sync with current selections.</p>
+          ) : (
+            <ul className="space-y-1">
+              {filePreview.map(filePath => (
+                <li key={filePath} className="text-xs text-gray-400 font-mono">
+                  {filePath}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
