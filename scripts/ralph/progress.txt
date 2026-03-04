@@ -22,3 +22,17 @@ Started: Wed Mar  4 21:45:19 UTC 2026
   - Skills validation uses a hardcoded `VALID_SKILLS` array in settings.ts
   - The Settings page mutation wraps ralphPath in `{ ralphPath: path }` — future stories adding UI controls should use the same pattern
 ---
+
+## 2026-03-04 21:53 - Parallel wave: US-002,US-006
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-03-04 - US-003
+- What was implemented: Added skills toggle UI to Settings page with a master "All Skills" checkbox and three individual skill checkboxes (prd, prd-questions, ralph). Master toggle uses indeterminate state when partially selected. Skills state is loaded from and saved to the backend via selectedSkills.
+- Files changed:
+  - `frontend/src/pages/Settings.tsx` — added selectedSkills state, master toggle with indeterminate support, individual skill checkboxes, included selectedSkills in save mutation
+- **Learnings for future iterations:**
+  - React `ref` callback pattern for indeterminate checkbox: `ref={el => { if (el) el.indeterminate = ... }}`
+  - Skills are optional (unlike providers) — all can be unchecked
+  - The `ALL_SKILLS` constant is defined inline in the component; if more skills are added, this array needs updating
+---

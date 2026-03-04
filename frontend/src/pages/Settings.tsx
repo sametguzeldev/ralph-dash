@@ -8,6 +8,7 @@ export function Settings() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [providerError, setProviderError] = useState<string | null>(null);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   // Git config state
   const [gitName, setGitName] = useState('');
@@ -27,10 +28,11 @@ export function Settings() {
   useEffect(() => {
     if (data?.ralphPath) setRalphPath(data.ralphPath);
     if (data?.selectedProviders) setSelectedProviders(data.selectedProviders);
+    if (data?.selectedSkills) setSelectedSkills(data.selectedSkills);
   }, [data]);
 
   const mutation = useMutation({
-    mutationFn: (path: string) => updateSettings({ ralphPath: path, selectedProviders }),
+    mutationFn: (path: string) => updateSettings({ ralphPath: path, selectedProviders, selectedSkills }),
     onSuccess: (result) => {
       setMessage({ type: 'success', text: `Saved! Ralph path: ${result.ralphPath}` });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -107,6 +109,23 @@ export function Settings() {
     });
   };
 
+  const ALL_SKILLS = ['prd', 'prd-questions', 'ralph'] as const;
+  const allSkillsSelected = ALL_SKILLS.every(s => selectedSkills.includes(s));
+
+  const handleMasterSkillToggle = () => {
+    if (allSkillsSelected) {
+      setSelectedSkills([]);
+    } else {
+      setSelectedSkills([...ALL_SKILLS]);
+    }
+  };
+
+  const handleSkillToggle = (skill: string) => {
+    setSelectedSkills(prev =>
+      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
+    );
+  };
+
   const handleSave = () => {
     setMessage(null);
     if (selectedProviders.length === 0) {
@@ -173,6 +192,42 @@ export function Settings() {
           {providerError && (
             <p className="mt-2 text-sm text-red-400">{providerError}</p>
           )}
+        </div>
+
+        <div className="mt-6 border-t border-gray-800 pt-4">
+          <h3 className="text-sm font-medium text-gray-300 mb-2">Skills</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Select which skills to include when syncing files to projects. Skills are optional.
+          </p>
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={allSkillsSelected}
+                onChange={handleMasterSkillToggle}
+                ref={el => {
+                  if (el) el.indeterminate = selectedSkills.length > 0 && !allSkillsSelected;
+                }}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-ralph-600 focus:ring-ralph-500 focus:ring-offset-0 cursor-pointer"
+              />
+              <span className="text-sm text-gray-300 group-hover:text-gray-100 font-medium">
+                All Skills
+              </span>
+            </label>
+            {ALL_SKILLS.map(skill => (
+              <label key={skill} className="flex items-center gap-3 cursor-pointer group ml-6">
+                <input
+                  type="checkbox"
+                  checked={selectedSkills.includes(skill)}
+                  onChange={() => handleSkillToggle(skill)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-ralph-600 focus:ring-ralph-500 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-sm text-gray-300 group-hover:text-gray-100">
+                  {skill}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 

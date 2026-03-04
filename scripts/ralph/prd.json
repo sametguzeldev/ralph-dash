@@ -36,7 +36,7 @@
         "Verify in browser"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -53,7 +53,7 @@
         "Runner script for project provider"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
@@ -70,7 +70,7 @@
         "Verify in browser"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "inProgress": false,
       "notes": ""
     },
