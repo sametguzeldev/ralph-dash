@@ -9,6 +9,8 @@ export function Settings() {
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [providerError, setProviderError] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [savedProviders, setSavedProviders] = useState<string[]>([]);
+  const [staleWarningDismissed, setStaleWarningDismissed] = useState(false);
 
   // Git config state
   const [gitName, setGitName] = useState('');
@@ -27,7 +29,10 @@ export function Settings() {
 
   useEffect(() => {
     if (data?.ralphPath) setRalphPath(data.ralphPath);
-    if (data?.selectedProviders) setSelectedProviders(data.selectedProviders);
+    if (data?.selectedProviders) {
+      setSelectedProviders(data.selectedProviders);
+      setSavedProviders(data.selectedProviders);
+    }
     if (data?.selectedSkills) setSelectedSkills(data.selectedSkills);
   }, [data]);
 
@@ -35,6 +40,7 @@ export function Settings() {
     mutationFn: () => updateSettings({ ralphPath, selectedProviders, selectedSkills }),
     onSuccess: () => {
       setMessage({ type: 'success', text: 'Settings saved successfully' });
+      setStaleWarningDismissed(true);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
     onError: (err: Error) => {
@@ -94,8 +100,12 @@ export function Settings() {
     gitDeleteMutation.mutate();
   };
 
+  const removedProviders = savedProviders.filter(p => !selectedProviders.includes(p));
+  const showStaleWarning = removedProviders.length > 0 && !staleWarningDismissed;
+
   const handleProviderToggle = (providerName: string) => {
     setProviderError(null);
+    setStaleWarningDismissed(false);
     setSelectedProviders(prev => {
       if (prev.includes(providerName)) {
         const next = prev.filter(p => p !== providerName);
@@ -200,6 +210,13 @@ export function Settings() {
           </div>
           {providerError && (
             <p className="mt-2 text-sm text-red-400">{providerError}</p>
+          )}
+          {showStaleWarning && (
+            <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+              <p className="text-sm text-yellow-400">
+                Removing {removedProviders.join(', ')} may leave stale files in existing projects. You can re-sync projects from the dashboard to clean up.
+              </p>
+            </div>
           )}
         </div>
 
