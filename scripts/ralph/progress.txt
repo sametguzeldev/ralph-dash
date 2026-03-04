@@ -1,51 +1,24 @@
 # Ralph Progress Log
-Started: Tue Mar  3 08:05:17 UTC 2026
+Started: Wed Mar  4 21:45:19 UTC 2026
+
+## Codebase Patterns
+- Settings stored as key-value pairs in `settings` table; JSON arrays stored as stringified JSON
+- Use `INSERT OR IGNORE` for seeding defaults (idempotent, won't overwrite user changes)
+- Frontend `updateSettings` takes an object with optional fields, not positional args
+- Valid provider names come from `getAllProviders()` in the registry; valid skills are `prd`, `prd-questions`, `ralph`
+- Backend routes import from providers with `.js` extension (ESM)
 ---
 
-## 2026-03-03 08:08 - Parallel wave: US-001,US-002,US-009
-- Stories ran in parallel worktrees via `claude --worktree`
----
-
-## 2026-03-03 08:13 - Parallel wave: US-003
-- Stories ran in parallel worktrees via `claude --worktree`
-- Failed to merge (will retry): US-004
----
-
-## 2026-03-03 - US-004
-- Implemented multi-provider support in models API routes
+## 2026-03-04 - US-001
+- What was implemented: Added `selectedProviders` and `selectedSkills` as JSON arrays in the settings table with defaults seeded on startup. Updated GET /settings to return these arrays and PUT /settings to accept optional fields with validation. Updated frontend API types to match.
 - Files changed:
-  - `backend/src/providers/registry.ts` — added `getAllProviders()` export
-  - `backend/src/routes/models.ts` — major update for multi-provider support
-- Key changes:
-  - PUT /token: provider-aware token storage (Claude uses `claudeToken`, others use `token`); OpenCode accepts `envVarName`
-  - PUT /model: validates against `getModelVariants()` for providers with fixed lists (codex), accepts any string for providers without (opencode)
-  - Lazy provider row creation via `ensureProviderRow()` — DB rows created on first PUT instead of startup seeding
-  - GET /models returns all registered providers (including unconfigured ones with `is_configured: false`)
-  - `sanitizeProviderConfig` passes through generic `model` key alongside `claudeModel`
-  - DELETE /token and DELETE /model are provider-aware for correct config key cleanup
+  - `backend/src/db/schema.ts` — added `seedDefaultSelections()` function
+  - `backend/src/routes/settings.ts` — added provider/skill validation, made ralphPath optional in PUT, added helper functions
+  - `frontend/src/lib/api.ts` — added `selectedProviders`/`selectedSkills` to SettingsResponse, new UpdateSettingsRequest/Response interfaces, changed updateSettings signature
+  - `frontend/src/pages/Settings.tsx` — updated mutation to use object-based updateSettings
 - **Learnings for future iterations:**
-  - Claude stores config with `claude`-prefixed keys (`claudeToken`, `claudeModel`); other providers use generic keys (`token`, `model`)
-  - `ensureProviderRow()` pattern: check registry first, then DB, create lazily if missing
-  - `sanitizeProviderConfig` must include all non-secret config keys the frontend needs
-  - Runner script metadata is owned by each provider class via the `runnerScript` property on the Provider interface
----
-
-## 2026-03-03 08:23 - Parallel wave: US-005,US-006,US-007
-- Stories ran in parallel worktrees via `claude --worktree`
----
-
-## 2026-03-03 - US-008
-- Added Codex tab to the Models page alongside Claude and OpenCode
-- Files changed:
-  - `frontend/src/pages/Models.tsx` — added CodexTab component and wired it into PROVIDER_TABS
-- Key changes:
-  - Authentication section: simple password input for API key (no env var name input since Codex uses fixed CODEX_API_KEY + OPENAI_API_KEY)
-  - Model section: dropdown populated from `provider.config.modelVariants` (fixed list of 5 Codex models)
-  - No Auto Memory preferences section (Codex doesn't support it)
-  - Follows same mutation/invalidation pattern as OpenCodeTab and ClaudeTab
-- **Learnings for future iterations:**
-  - Each provider tab is a self-contained component with its own state and mutations — copy the closest existing tab as a template
-  - Codex uses `config.model` (generic key) not `config.claudeModel` for the current model display
-  - `config.modelVariants` is populated by the backend provider's `getModelVariants()` and available in the sanitized config
-  - Providers with fixed model lists use `<select>` dropdowns; providers with freeform use `<input>` text fields
+  - PUT /settings now accepts partial updates (any combination of ralphPath, selectedProviders, selectedSkills)
+  - Provider validation uses `getAllProviders()` from the registry, so new providers auto-become valid
+  - Skills validation uses a hardcoded `VALID_SKILLS` array in settings.ts
+  - The Settings page mutation wraps ralphPath in `{ ralphPath: path }` — future stories adding UI controls should use the same pattern
 ---

@@ -1,29 +1,21 @@
 {
   "project": "RalphDash",
-  "branchName": "ralph/opencode-codex-providers",
-  "description": "Add OpenCode and Codex as model providers to RalphDash alongside the existing Claude provider",
-  "qualityChecks": [
-    {
-      "name": "Backend typecheck",
-      "command": "cd backend && npm run build",
-      "onFail": "stop"
-    },
-    {
-      "name": "Frontend typecheck",
-      "command": "cd frontend && npm run build",
-      "onFail": "stop"
-    }
-  ],
+  "branchName": "ralph/provider-selection-optional-skills-settings",
+  "description": "Provider Selection & Optional Skills in Settings - Replace static file list with interactive provider/skill configuration",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add envVarName to ProviderConfig type",
-      "description": "As a developer, I need the ProviderConfig type to include an optional envVarName field so OpenCode can store which environment variable name to use for injecting the API key.",
+      "title": "Add provider and skill settings to the database",
+      "description": "As a developer, I need to persist provider selections and skill toggles in the settings table so they survive server restarts.",
       "acceptanceCriteria": [
-        "ProviderConfig in backend/src/providers/types.ts has a new optional field: envVarName?: string",
-        "Existing Claude provider is unaffected (field is optional, Claude doesn't use it)",
-        "sanitizeProviderConfig in backend/src/routes/models.ts is updated to pass through envVarName (not a secret — it's the variable name, not the value)",
-        "Typecheck passes (cd backend && npm run build)"
+        "Provider selections stored as JSON array under settings key selectedProviders",
+        "Skill selections stored as JSON array under settings key selectedSkills",
+        "Default values on fresh install",
+        "PUT /settings accepts optional fields",
+        "Validation for selectedProviders",
+        "Validation for selectedSkills",
+        "GET /settings returns arrays",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
@@ -32,144 +24,120 @@
     },
     {
       "id": "US-002",
-      "title": "Create Codex provider backend implementation",
-      "description": "As a developer, I need a Codex provider class that implements the Provider interface so the system can build the correct environment and CLI args when running Codex projects.",
+      "title": "Build provider selection UI",
+      "description": "As a user, I want to select which providers are active",
       "acceptanceCriteria": [
-        "New file backend/src/providers/codex.ts implementing the Provider interface",
-        "name is 'codex'",
-        "getEnvVars() injects the stored token as both CODEX_API_KEY and OPENAI_API_KEY simultaneously",
-        "getCliArgs() returns ['--full-auto'] for auto-approve",
-        "getModelVariants() returns exactly: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex-max', 'gpt-5.2', 'gpt-5.1-codex-mini']",
-        "getFilesToSync() returns a sync mapping for ralph-codex.sh (source resolved from ralphPath, dest is scripts/ralph/ralph-codex.sh)",
-        "parseConfig() reads token and model from raw config JSON and returns a normalized ProviderConfig",
-        "Provider is registered in backend/src/providers/registry.ts",
-        "Typecheck passes (cd backend && npm run build)"
-      ],
-      "priority": 1,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-003",
-      "title": "Create OpenCode provider backend implementation",
-      "description": "As a developer, I need an OpenCode provider class that implements the Provider interface so the system can build the correct environment and CLI args when running OpenCode projects.",
-      "acceptanceCriteria": [
-        "New file backend/src/providers/opencode.ts implementing the Provider interface",
-        "name is 'opencode'",
-        "getEnvVars() injects the stored token using the user-specified envVarName from config (e.g., OPENAI_API_KEY=sk-...)",
-        "getCliArgs() returns ['--yolo'] for auto-approve",
-        "getModelVariants() returns an empty array (OpenCode uses free-text model input, not a fixed list)",
-        "getFilesToSync() returns a sync mapping for ralph-opencode.sh (source resolved from ralphPath, dest is scripts/ralph/ralph-opencode.sh)",
-        "parseConfig() reads token, model, and envVarName from raw config JSON and returns a normalized ProviderConfig",
-        "Provider is registered in backend/src/providers/registry.ts",
-        "Typecheck passes (cd backend && npm run build)"
+        "Multi-select checkbox group",
+        "Checkboxes reflect saved state",
+        "At least one provider must remain selected",
+        "Error clears when re-selecting",
+        "Replaces static list in-place",
+        "Typecheck passes",
+        "Verify in browser"
       ],
       "priority": 2,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-004",
-      "title": "Update models API routes for new providers",
-      "description": "As a developer, I need the models API to handle OpenCode and Codex provider configuration — saving tokens, models, and env var names — without the Claude-specific sk-ant-* token validation.",
-      "acceptanceCriteria": [
-        "PUT /api/models/:provider/token accepts tokens for opencode and codex providers with non-empty-string-only validation (no sk-ant-* prefix check)",
-        "PUT /api/models/:provider/token for opencode also accepts an envVarName field in the request body and stores it in the provider config",
-        "PUT /api/models/:provider/model works for codex (validates against its modelVariants array) and for opencode (accepts any non-empty string since it has no fixed variant list)",
-        "Provider DB rows are created lazily on first PUT if they don't already exist (instead of being seeded on startup)",
-        "sanitizeProviderConfig includes envVarName in sanitized output for the frontend",
-        "GET /api/models always returns all registered providers, even if not yet configured (with is_configured: false)",
-        "Typecheck passes (cd backend && npm run build)"
-      ],
-      "priority": 2,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "Add OpenCode tab to Models page",
-      "description": "As a user, I want an OpenCode tab on the Models page so I can configure OpenCode as a provider with my API key, env var name, and model.",
-      "acceptanceCriteria": [
-        "Models page tabs include 'OpenCode' alongside 'Claude'",
-        "OpenCode tab has an Authentication section with: a text input for the environment variable name (e.g., OPENAI_API_KEY), a password input for the API key value, and a Save button that stores both",
-        "A 'Configured' badge is shown when is_configured is true",
-        "OpenCode tab has a Model section with: a free-text input for the model identifier (no dropdown), a Save button, and current model shown in a badge when set",
-        "OpenCode tab does NOT have an Auto Memory preferences section",
-        "Typecheck passes (cd frontend && npm run build)",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 3,
-      "passes": true,
+      "passes": false,
       "inProgress": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Allow assigning projects to new providers",
-      "description": "As a user, I want to assign a project to use OpenCode or Codex so that runs use the correct CLI tool and credentials.",
+      "title": "Update file copy logic to respect settings",
+      "description": "fileCopier uses saved settings",
       "acceptanceCriteria": [
-        "PUT /api/projects/:id/provider accepts 'opencode' and 'codex' as valid provider values",
-        "When switching a project to OpenCode, model_variant is set to null (no default)",
-        "When switching a project to Codex, model_variant is set to 'gpt-5.3-codex'",
-        "PUT /api/projects/:id/model-variant for OpenCode projects accepts any non-empty string (not validated against a variants list)",
-        "The project provider dropdown on the Dashboard includes OpenCode and Codex as options",
-        "Typecheck passes (cd frontend && npm run build)",
-        "Verify in browser using dev-browser skill"
+        "copyRalphFiles reads selectedSkills",
+        "Skills filtered based on selectedSkills",
+        "CLAUDE.md only for Claude provider",
+        "Codex skills to .agents/skills/",
+        "Deduplication for shared paths",
+        "Runner script for project provider"
+      ],
+      "priority": 2,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Build skills toggle UI",
+      "description": "Toggle which skills are included",
+      "acceptanceCriteria": [
+        "Master toggle",
+        "Three skill checkboxes",
+        "Master toggle state sync",
+        "Skills optional",
+        "Typecheck passes",
+        "Verify in browser"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Live file preview",
+      "description": "See which files will be copied",
+      "acceptanceCriteria": [
+        "Relative destination paths",
+        "Updates immediately",
+        "Deduplicates paths",
+        "CLAUDE.md conditional",
+        "Empty state handled",
+        "Typecheck passes",
+        "Verify in browser"
+      ],
+      "priority": 4,
+      "passes": false,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Unified Save button",
+      "description": "One Save button for all settings",
+      "acceptanceCriteria": [
+        "Single Save button",
+        "Sends all fields in one request",
+        "Disabled when no providers",
+        "Success/error feedback",
+        "Typecheck passes",
+        "Verify in browser"
+      ],
+      "priority": 5,
+      "passes": false,
       "inProgress": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Run projects with OpenCode and Codex providers",
-      "description": "As a user, I want to start a run on a project assigned to OpenCode or Codex so the correct CLI is invoked with the right environment variables and flags.",
+      "title": "Stale file warning",
+      "description": "Warn about stale files when provider removed",
       "acceptanceCriteria": [
-        "processManager.startRun() works for OpenCode projects: spawns the runner script with OpenCode env vars (user-specified env var name -> token) and --yolo flag",
-        "processManager.startRun() works for Codex projects: spawns the runner script with both CODEX_API_KEY and OPENAI_API_KEY set, and --full-auto flag",
-        "Runs fail gracefully with a clear error message if the provider is not configured (no token saved)",
-        "Typecheck passes (cd backend && npm run build)"
+        "Show warning when provider deselected",
+        "Warning text",
+        "Yellow styling",
+        "Informational only",
+        "Dismisses after save",
+        "Typecheck passes",
+        "Verify in browser"
       ],
-      "priority": 3,
-      "passes": true,
+      "priority": 6,
+      "passes": false,
       "inProgress": false,
       "notes": ""
+    }
+  ],
+  "qualityChecks": [
+    {
+      "check": "TypeScript compile (backend)",
+      "run": "cd backend && npm run build",
+      "pass": false
     },
     {
-      "id": "US-008",
-      "title": "Add Codex tab to Models page",
-      "description": "As a user, I want a Codex tab on the Models page so I can configure Codex as a provider with my API key and select a model.",
-      "acceptanceCriteria": [
-        "Models page tabs include 'Codex' alongside 'Claude' and 'OpenCode'",
-        "Codex tab has an Authentication section with: a password input for the API key, a Save button, and a 'Configured' badge when is_configured is true. No env var name input (Codex uses fixed var names)",
-        "Codex tab has a Model section with: a dropdown containing exactly gpt-5.3-codex, gpt-5.2-codex, gpt-5.1-codex-max, gpt-5.2, gpt-5.1-codex-mini, a Save button, and current model shown in a badge when set",
-        "Codex tab does NOT have an Auto Memory preferences section",
-        "Typecheck passes (cd frontend && npm run build)",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 4,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-009",
-      "title": "Create placeholder runner scripts",
-      "description": "As a developer, I need placeholder runner scripts for OpenCode and Codex so the process manager has valid script paths to invoke.",
-      "acceptanceCriteria": [
-        "Create empty placeholder script scripts/ralph/ralph-opencode.sh",
-        "Create empty placeholder script scripts/ralph/ralph-codex.sh",
-        "Both scripts are executable (chmod +x)",
-        "These scripts will be filled in with actual logic in a future task"
-      ],
-      "priority": 1,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
+      "check": "TypeScript compile (frontend)",
+      "run": "cd frontend && npm run build",
+      "pass": false
     }
   ]
 }
