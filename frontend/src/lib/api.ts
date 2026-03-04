@@ -16,19 +16,33 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export interface SettingsResponse {
   ralphPath: string | null;
   isDocker: boolean;
+  selectedProviders: string[];
+  selectedSkills: string[];
   gitConfigured?: boolean;
   gitUserName?: string | null;
   gitUserEmail?: string | null;
+}
+
+export interface UpdateSettingsRequest {
+  ralphPath?: string;
+  selectedProviders?: string[];
+  selectedSkills?: string[];
+}
+
+export interface UpdateSettingsResponse {
+  ralphPath?: string;
+  selectedProviders: string[];
+  selectedSkills: string[];
 }
 
 export function getSettings() {
   return request<SettingsResponse>('/settings');
 }
 
-export function updateSettings(ralphPath: string) {
-  return request<{ ralphPath: string }>('/settings', {
+export function updateSettings(settings: UpdateSettingsRequest) {
+  return request<UpdateSettingsResponse>('/settings', {
     method: 'PUT',
-    body: JSON.stringify({ ralphPath }),
+    body: JSON.stringify(settings),
   });
 }
 

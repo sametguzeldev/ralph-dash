@@ -22,7 +22,7 @@ export function Settings() {
   }, [data]);
 
   const mutation = useMutation({
-    mutationFn: (path: string) => updateSettings(path),
+    mutationFn: (path: string) => updateSettings({ ralphPath: path }),
     onSuccess: (result) => {
       setMessage({ type: 'success', text: `Saved! Ralph path: ${result.ralphPath}` });
       queryClient.invalidateQueries({ queryKey: ['settings'] });

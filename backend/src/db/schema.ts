@@ -36,6 +36,19 @@ export function initializeDatabase() {
   }
 
   migrateSettingsToProviders();
+  seedDefaultSelections();
+}
+
+/**
+ * Seed default selectedProviders and selectedSkills if they don't exist yet.
+ * Runs idempotently on every startup.
+ */
+function seedDefaultSelections() {
+  const insertIfMissing = db.prepare(
+    'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
+  );
+  insertIfMissing.run('selectedProviders', JSON.stringify(['claude']));
+  insertIfMissing.run('selectedSkills', JSON.stringify(['prd', 'prd-questions', 'ralph']));
 }
 
 /**
