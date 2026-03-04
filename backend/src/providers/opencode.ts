@@ -1,3 +1,4 @@
+import path from 'path';
 import type { Provider, ProviderConfig } from './types.js';
 
 export class OpenCodeProvider implements Provider {
@@ -45,7 +46,7 @@ export class OpenCodeProvider implements Provider {
     };
   }
 
-  getFilesToSync(_ralphPath: string): { source: string; dest: string }[] {
-    return [{ source: 'scripts/ralph/ralph-opencode.sh', dest: 'scripts/ralph/ralph-opencode.sh' }];
+  getFilesToSync(ralphPath: string): { source: string; dest: string }[] {
+    return [{ source: path.join(ralphPath, 'scripts', 'ralph', 'ralph-opencode.sh'), dest: 'scripts/ralph/ralph-opencode.sh' }];
   }
 }

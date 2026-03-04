@@ -40,7 +40,7 @@
         "getEnvVars() injects the stored token as both CODEX_API_KEY and OPENAI_API_KEY simultaneously",
         "getCliArgs() returns ['--full-auto'] for auto-approve",
         "getModelVariants() returns exactly: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex-max', 'gpt-5.2', 'gpt-5.1-codex-mini']",
-        "getFilesToSync() returns an empty array",
+        "getFilesToSync() returns a sync mapping for ralph-codex.sh (source resolved from ralphPath, dest is scripts/ralph/ralph-codex.sh)",
         "parseConfig() reads token and model from raw config JSON and returns a normalized ProviderConfig",
         "Provider is registered in backend/src/providers/registry.ts",
         "Typecheck passes (cd backend && npm run build)"
@@ -60,7 +60,7 @@
         "getEnvVars() injects the stored token using the user-specified envVarName from config (e.g., OPENAI_API_KEY=sk-...)",
         "getCliArgs() returns ['--yolo'] for auto-approve",
         "getModelVariants() returns an empty array (OpenCode uses free-text model input, not a fixed list)",
-        "getFilesToSync() returns an empty array",
+        "getFilesToSync() returns a sync mapping for ralph-opencode.sh (source resolved from ralphPath, dest is scripts/ralph/ralph-opencode.sh)",
         "parseConfig() reads token, model, and envVarName from raw config JSON and returns a normalized ProviderConfig",
         "Provider is registered in backend/src/providers/registry.ts",
         "Typecheck passes (cd backend && npm run build)"

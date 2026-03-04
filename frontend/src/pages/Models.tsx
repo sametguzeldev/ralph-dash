@@ -125,12 +125,14 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
     onSuccess: (result) => {
       const typeLabel = result.tokenType === 'oauth' ? 'OAuth Token' : 'API Key';
       setTokenMessage({ type: 'success', text: `Saved! Token type: ${typeLabel}` });
+      setTimeout(() => setTokenMessage(null), 3000);
       setToken('');
       setShowToken(false);
       invalidate();
     },
     onError: (err: Error) => {
       setTokenMessage({ type: 'error', text: err.message });
+      setTimeout(() => setTokenMessage(null), 5000);
     },
   });
 
@@ -138,10 +140,12 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
     mutationFn: () => deleteProviderToken(config.providerName),
     onSuccess: () => {
       setTokenMessage({ type: 'success', text: 'Token removed' });
+      setTimeout(() => setTokenMessage(null), 3000);
       invalidate();
     },
     onError: (err: Error) => {
       setTokenMessage({ type: 'error', text: err.message });
+      setTimeout(() => setTokenMessage(null), 5000);
     },
   });
 
@@ -150,10 +154,12 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
     mutationFn: (modelValue: string) => saveProviderModel(config.providerName, modelValue),
     onSuccess: (result) => {
       setModelMessage({ type: 'success', text: `Saved! Model: ${result.model}` });
+      setTimeout(() => setModelMessage(null), 3000);
       invalidate();
     },
     onError: (err: Error) => {
       setModelMessage({ type: 'error', text: err.message });
+      setTimeout(() => setModelMessage(null), 5000);
     },
   });
 
@@ -164,12 +170,14 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
         ? 'Model preference removed (using default)'
         : 'Model removed';
       setModelMessage({ type: 'success', text: msg });
+      setTimeout(() => setModelMessage(null), 3000);
       setModel('');
       setCustomModel('');
       invalidate();
     },
     onError: (err: Error) => {
       setModelMessage({ type: 'error', text: err.message });
+      setTimeout(() => setModelMessage(null), 5000);
     },
   });
 
@@ -183,6 +191,7 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
       const prefKey = config.preferences?.preferenceKey || 'autoMemoryEnabled';
       setPreferenceEnabled(!(prefs[prefKey] as boolean));
       setPreferenceMessage({ type: 'error', text: err.message });
+      setTimeout(() => setPreferenceMessage(null), 5000);
     },
   });
 
@@ -338,6 +347,7 @@ function ProviderTab({ provider, config }: { provider: ProviderResponse; config:
                 {modelVariants.map((v: string) => (
                   <option key={v} value={v}>{formatLabel(v)}</option>
                 ))}
+                {config.model.hasCustomModel && <option value="custom">Custom...</option>}
               </select>
             ) : (
               <input
@@ -479,10 +489,12 @@ function CodexProviderTab({ provider }: { provider: ProviderResponse }) {
     mutationFn: () => saveCodexChatGptAuth(),
     onSuccess: () => {
       setTokenMessage({ type: 'success', text: 'ChatGPT auth activated via ~/.codex/auth.json' });
+      setTimeout(() => setTokenMessage(null), 3000);
       invalidate();
     },
     onError: (err: Error) => {
       setTokenMessage({ type: 'error', text: err.message });
+      setTimeout(() => setTokenMessage(null), 5000);
     },
   });
 
@@ -490,12 +502,14 @@ function CodexProviderTab({ provider }: { provider: ProviderResponse }) {
     mutationFn: (t: string) => saveProviderToken('codex', t),
     onSuccess: () => {
       setTokenMessage({ type: 'success', text: 'API key saved' });
+      setTimeout(() => setTokenMessage(null), 3000);
       setToken('');
       setShowToken(false);
       invalidate();
     },
     onError: (err: Error) => {
       setTokenMessage({ type: 'error', text: err.message });
+      setTimeout(() => setTokenMessage(null), 5000);
     },
   });
 
@@ -503,10 +517,12 @@ function CodexProviderTab({ provider }: { provider: ProviderResponse }) {
     mutationFn: () => deleteProviderToken('codex'),
     onSuccess: () => {
       setTokenMessage({ type: 'success', text: 'Auth removed' });
+      setTimeout(() => setTokenMessage(null), 3000);
       invalidate();
     },
     onError: (err: Error) => {
       setTokenMessage({ type: 'error', text: err.message });
+      setTimeout(() => setTokenMessage(null), 5000);
     },
   });
 
@@ -514,10 +530,12 @@ function CodexProviderTab({ provider }: { provider: ProviderResponse }) {
     mutationFn: (m: string) => saveProviderModel('codex', m),
     onSuccess: (result) => {
       setModelMessage({ type: 'success', text: `Saved! Model: ${result.model}` });
+      setTimeout(() => setModelMessage(null), 3000);
       invalidate();
     },
     onError: (err: Error) => {
       setModelMessage({ type: 'error', text: err.message });
+      setTimeout(() => setModelMessage(null), 5000);
     },
   });
 
@@ -525,11 +543,13 @@ function CodexProviderTab({ provider }: { provider: ProviderResponse }) {
     mutationFn: () => deleteProviderModel('codex'),
     onSuccess: () => {
       setModelMessage({ type: 'success', text: 'Model preference removed (using default)' });
+      setTimeout(() => setModelMessage(null), 3000);
       setModel('');
       invalidate();
     },
     onError: (err: Error) => {
       setModelMessage({ type: 'error', text: err.message });
+      setTimeout(() => setModelMessage(null), 5000);
     },
   });
 

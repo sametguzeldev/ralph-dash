@@ -27,7 +27,7 @@ Started: Tue Mar  3 08:05:17 UTC 2026
   - Claude stores config with `claude`-prefixed keys (`claudeToken`, `claudeModel`); other providers use generic keys (`token`, `model`)
   - `ensureProviderRow()` pattern: check registry first, then DB, create lazily if missing
   - `sanitizeProviderConfig` must include all non-secret config keys the frontend needs
-  - `RUNNER_SCRIPTS` mapping in models.ts defines runner scripts for lazy row creation
+  - Runner script metadata is owned by each provider class via the `runnerScript` property on the Provider interface
 ---
 
 ## 2026-03-03 08:23 - Parallel wave: US-005,US-006,US-007
