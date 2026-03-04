@@ -32,9 +32,9 @@ export function Settings() {
   }, [data]);
 
   const mutation = useMutation({
-    mutationFn: (path: string) => updateSettings({ ralphPath: path, selectedProviders, selectedSkills }),
-    onSuccess: (result) => {
-      setMessage({ type: 'success', text: `Saved! Ralph path: ${result.ralphPath}` });
+    mutationFn: () => updateSettings({ ralphPath, selectedProviders, selectedSkills }),
+    onSuccess: () => {
+      setMessage({ type: 'success', text: 'Settings saved successfully' });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
     onError: (err: Error) => {
@@ -132,7 +132,7 @@ export function Settings() {
       setMessage({ type: 'error', text: 'At least one provider must be selected' });
       return;
     }
-    mutation.mutate(ralphPath);
+    mutation.mutate();
   };
 
   const filePreview = useMemo(() => {
@@ -170,28 +170,13 @@ export function Settings() {
         <p className="text-xs text-gray-500 mb-3">
           Path to the Ralph repository (e.g., ~/PersonalProjects/ralph)
         </p>
-        <div className="flex flex-col md:flex-row gap-3">
-          <input
-            type="text"
-            value={ralphPath}
-            onChange={e => setRalphPath(e.target.value)}
-            placeholder="~/PersonalProjects/ralph"
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
-          />
-          <button
-            onClick={handleSave}
-            disabled={mutation.isPending}
-            className="px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
-          >
-            {mutation.isPending ? 'Saving...' : 'Save'}
-          </button>
-        </div>
-
-        {message && (
-          <p className={`mt-3 text-sm ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-            {message.text}
-          </p>
-        )}
+        <input
+          type="text"
+          value={ralphPath}
+          onChange={e => setRalphPath(e.target.value)}
+          placeholder="~/PersonalProjects/ralph"
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 min-h-[44px] text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-ralph-500 focus:ring-1 focus:ring-ralph-500"
+        />
 
         <div className="mt-6 border-t border-gray-800 pt-4">
           <h3 className="text-sm font-medium text-gray-300 mb-2">Active Providers</h3>
@@ -269,6 +254,21 @@ export function Settings() {
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+
+        <div className="mt-6 border-t border-gray-800 pt-4">
+          <button
+            onClick={handleSave}
+            disabled={mutation.isPending || selectedProviders.length === 0}
+            className="w-full px-4 py-2 min-h-[44px] bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+          >
+            {mutation.isPending ? 'Saving...' : 'Save Settings'}
+          </button>
+          {message && (
+            <p className={`mt-3 text-sm ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {message.text}
+            </p>
           )}
         </div>
       </div>
