@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSettings, updateSettings, saveGitConfig, deleteGitConfig } from '../lib/api';
+import { getSettings, updateSettings, saveGitConfig, deleteGitConfig, getModels } from '../lib/api';
 
 export function Settings() {
   const queryClient = useQueryClient();
   const [ralphPath, setRalphPath] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [providerError, setProviderError] = useState<string | null>(null);
 
   // Git config state
   const [gitName, setGitName] = useState('');
@@ -17,12 +19,18 @@ export function Settings() {
     queryFn: getSettings,
   });
 
+  const { data: models } = useQuery({
+    queryKey: ['models'],
+    queryFn: getModels,
+  });
+
   useEffect(() => {
     if (data?.ralphPath) setRalphPath(data.ralphPath);
+    if (data?.selectedProviders) setSelectedProviders(data.selectedProviders);
   }, [data]);
 
   const mutation = useMutation({
-    mutationFn: (path: string) => updateSettings({ ralphPath: path }),
+    mutationFn: (path: string) => updateSettings({ ralphPath: path, selectedProviders }),
     onSuccess: (result) => {
       setMessage({ type: 'success', text: `Saved! Ralph path: ${result.ralphPath}` });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -84,8 +92,27 @@ export function Settings() {
     gitDeleteMutation.mutate();
   };
 
+  const handleProviderToggle = (providerName: string) => {
+    setProviderError(null);
+    setSelectedProviders(prev => {
+      if (prev.includes(providerName)) {
+        const next = prev.filter(p => p !== providerName);
+        if (next.length === 0) {
+          setProviderError('At least one provider must be selected');
+          return prev;
+        }
+        return next;
+      }
+      return [...prev, providerName];
+    });
+  };
+
   const handleSave = () => {
     setMessage(null);
+    if (selectedProviders.length === 0) {
+      setMessage({ type: 'error', text: 'At least one provider must be selected' });
+      return;
+    }
     mutation.mutate(ralphPath);
   };
 
@@ -124,14 +151,28 @@ export function Settings() {
         )}
 
         <div className="mt-6 border-t border-gray-800 pt-4">
-          <h3 className="text-sm font-medium text-gray-300 mb-2">Files copied to projects</h3>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li className="font-mono">.claude/skills/prd/SKILL.md</li>
-            <li className="font-mono">.claude/skills/prd-questions/SKILL.md</li>
-            <li className="font-mono">.claude/skills/ralph/SKILL.md</li>
-            <li className="font-mono">scripts/ralph/ralph-cc.sh</li>
-            <li className="font-mono">scripts/ralph/CLAUDE.md</li>
-          </ul>
+          <h3 className="text-sm font-medium text-gray-300 mb-2">Active Providers</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Select which providers are available for projects. At least one must be selected.
+          </p>
+          <div className="space-y-2">
+            {models?.map(provider => (
+              <label key={provider.name} className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={selectedProviders.includes(provider.name)}
+                  onChange={() => handleProviderToggle(provider.name)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-ralph-600 focus:ring-ralph-500 focus:ring-offset-0 cursor-pointer"
+                />
+                <span className="text-sm text-gray-300 group-hover:text-gray-100 capitalize">
+                  {provider.name}
+                </span>
+              </label>
+            ))}
+          </div>
+          {providerError && (
+            <p className="mt-2 text-sm text-red-400">{providerError}</p>
+          )}
         </div>
       </div>
 
