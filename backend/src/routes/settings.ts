@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { db } from '../db/connection.js';
 import { getAllProviders } from '../providers/registry.js';
 
@@ -53,7 +54,7 @@ settingsRouter.put('/', (req, res) => {
       return res.status(400).json({ error: 'ralphPath must be a non-empty string' });
     }
 
-    const expandedPath = ralphPath.replace(/^~/, process.env.HOME || '');
+    const expandedPath = ralphPath.replace(/^~/, os.homedir());
 
     if (!fs.existsSync(expandedPath)) {
       return res.status(400).json({ error: 'Path does not exist' });
