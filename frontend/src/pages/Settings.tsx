@@ -189,7 +189,7 @@ export function Settings() {
     }
 
     return [...paths].sort();
-  }, [selectedProviders, selectedSkills, models]);
+  }, [selectedProviders, selectedSkills, models, projects]);
 
   return (
     <div className="md:max-w-2xl">
