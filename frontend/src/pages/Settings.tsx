@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSettings, updateSettings, saveGitConfig, deleteGitConfig, getModels } from '../lib/api';
+import { getSettings, updateSettings, saveGitConfig, deleteGitConfig, getModels, getProjects } from '../lib/api';
 
 export function Settings() {
   const queryClient = useQueryClient();
@@ -27,6 +27,11 @@ export function Settings() {
     queryFn: getModels,
   });
 
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: getProjects,
+  });
+
   useEffect(() => {
     if (data?.ralphPath) setRalphPath(data.ralphPath);
     if (data?.selectedProviders) {
@@ -37,14 +42,21 @@ export function Settings() {
   }, [data]);
 
   const mutation = useMutation({
-    mutationFn: () => updateSettings({ ralphPath, selectedProviders, selectedSkills }),
+    mutationFn: () =>
+      updateSettings({
+        ...(ralphPath.trim() ? { ralphPath: ralphPath.trim() } : {}),
+        selectedProviders,
+        selectedSkills,
+      }),
     onSuccess: () => {
       setMessage({ type: 'success', text: 'Settings saved successfully' });
+      setTimeout(() => setMessage(null), 3000);
       setStaleWarningDismissed(true);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
     onError: (err: Error) => {
       setMessage({ type: 'error', text: err.message });
+      setTimeout(() => setMessage(null), 5000);
     },
   });
 
@@ -148,6 +160,7 @@ export function Settings() {
   const filePreview = useMemo(() => {
     const paths = new Set<string>();
 
+    // Skills: based on global selectedSkills (correct - skills are global)
     for (const provName of selectedProviders) {
       const skillsDir = provName === 'codex' ? '.agents/skills' : '.claude/skills';
       for (const skill of selectedSkills) {
@@ -155,14 +168,23 @@ export function Settings() {
       }
     }
 
+    // CLAUDE.md: only when Claude is in selectedProviders
     if (selectedProviders.includes('claude')) {
       paths.add('scripts/ralph/CLAUDE.md');
     }
 
-    for (const provName of selectedProviders) {
-      const provider = models?.find(m => m.name === provName);
-      if (provider?.runner_script) {
-        paths.add(`scripts/ralph/${provider.runner_script}`);
+    // Runner scripts: based on each project's provider (not selectedProviders)
+    // This matches actual backend sync behavior
+    if (projects) {
+      const seenRunners = new Set<string>();
+      for (const project of projects) {
+        if (project.provider && !seenRunners.has(project.provider)) {
+          const provider = models?.find(m => m.name === project.provider);
+          if (provider?.runner_script) {
+            paths.add(`scripts/ralph/${provider.runner_script}`);
+            seenRunners.add(project.provider);
+          }
+        }
       }
     }
 

@@ -128,16 +128,8 @@
       "notes": ""
     }
   ],
-  "qualityChecks": [
-    {
-      "check": "TypeScript compile (backend)",
-      "run": "cd backend && npm run build",
-      "pass": false
-    },
-    {
-      "check": "TypeScript compile (frontend)",
-      "run": "cd frontend && npm run build",
-      "pass": false
-    }
-  ]
+  "qualityChecks": {
+    "TypeScript compile (backend)": "cd backend && npm run build",
+    "TypeScript compile (frontend)": "cd frontend && npm run build"
+  }
 }

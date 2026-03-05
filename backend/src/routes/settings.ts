@@ -47,6 +47,9 @@ settingsRouter.get('/', (_req, res) => {
 
 settingsRouter.put('/', (req, res) => {
   const { ralphPath, selectedProviders, selectedSkills } = req.body;
+  let expandedPath: string | undefined;
+
+  // Validate all fields first, before any DB writes
 
   // ralphPath is optional now — only validate if provided
   if (ralphPath !== undefined) {
@@ -54,7 +57,7 @@ settingsRouter.put('/', (req, res) => {
       return res.status(400).json({ error: 'ralphPath must be a non-empty string' });
     }
 
-    const expandedPath = ralphPath.replace(/^~/, os.homedir());
+    expandedPath = ralphPath.replace(/^~/, os.homedir());
 
     if (!fs.existsSync(expandedPath)) {
       return res.status(400).json({ error: 'Path does not exist' });
@@ -67,8 +70,6 @@ settingsRouter.put('/', (req, res) => {
     if (!fs.existsSync(path.join(expandedPath, 'skills', 'ralph', 'SKILL.md'))) {
       return res.status(400).json({ error: 'skills/ralph/SKILL.md not found in the specified path' });
     }
-
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('ralphPath', expandedPath);
   }
 
   // Validate selectedProviders if provided
@@ -84,10 +85,6 @@ settingsRouter.put('/', (req, res) => {
     if (invalid.length > 0) {
       return res.status(400).json({ error: `Invalid provider(s): ${invalid.join(', ')}` });
     }
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-      'selectedProviders',
-      JSON.stringify(selectedProviders)
-    );
   }
 
   // Validate selectedSkills if provided
@@ -100,11 +97,27 @@ settingsRouter.put('/', (req, res) => {
     if (invalid.length > 0) {
       return res.status(400).json({ error: `Invalid skill(s): ${invalid.join(', ')}. Valid skills: ${VALID_SKILLS.join(', ')}` });
     }
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-      'selectedSkills',
-      JSON.stringify(selectedSkills)
-    );
   }
+
+  // All validations passed — persist in a single transaction
+  const persist = db.transaction(() => {
+    if (expandedPath !== undefined) {
+      db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('ralphPath', expandedPath);
+    }
+    if (selectedProviders !== undefined) {
+      db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+        'selectedProviders',
+        JSON.stringify(selectedProviders)
+      );
+    }
+    if (selectedSkills !== undefined) {
+      db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+        'selectedSkills',
+        JSON.stringify(selectedSkills)
+      );
+    }
+  });
+  persist();
 
   // Return current state
   const result: Record<string, unknown> = {};
