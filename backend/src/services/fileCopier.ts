@@ -9,6 +9,11 @@ function getSkillsDir(providerName: string): string {
   return '.claude/skills';
 }
 
+/** Validate skill name to prevent path traversal. */
+function isValidSkillName(name: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(name);
+}
+
 /** Read a JSON array setting from the DB, returning [] on missing/invalid. */
 function getJsonArraySetting(key: string): string[] {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
@@ -39,6 +44,10 @@ export function copyRalphFiles(ralphPath: string, projectRoot: string, providerN
   for (const provName of selectedProviders) {
     const skillsDir = getSkillsDir(provName);
     for (const skill of selectedSkills) {
+      if (!isValidSkillName(skill)) {
+        console.warn(`Skipping invalid skill name: ${skill}`);
+        continue;
+      }
       addFile(
         path.join(ralphPath, 'skills', skill, 'SKILL.md'),
         path.join(skillsDir, skill, 'SKILL.md'),
