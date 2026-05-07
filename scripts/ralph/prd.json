@@ -1,20 +1,22 @@
 {
   "project": "RalphDash",
-  "branchName": "ralph/provider-selection-optional-skills-settings",
-  "description": "Provider Selection & Optional Skills in Settings - Replace static file list with interactive provider/skill configuration",
+  "branchName": "ralph/opus-4-7-support",
+  "description": "Opus 4.7 Model Support - Replace Opus 4.6 with Opus 4.7 and add version numbers to model labels",
+  "qualityChecks": {
+    "TypeScript compile (backend)": "cd backend && npm run build",
+    "TypeScript compile (frontend)": "cd frontend && npm run build"
+  },
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add provider and skill settings to the database",
-      "description": "As a developer, I need to persist provider selections and skill toggles in the settings table so they survive server restarts.",
+      "title": "Replace Opus 4.6 with Opus 4.7 in Claude provider variants",
+      "description": "As a developer, I need the Claude provider to offer Opus 4.7 instead of Opus 4.6 so that new projects use the latest model.",
       "acceptanceCriteria": [
-        "Provider selections stored as JSON array under settings key selectedProviders",
-        "Skill selections stored as JSON array under settings key selectedSkills",
-        "Default values on fresh install",
-        "PUT /settings accepts optional fields",
-        "Validation for selectedProviders",
-        "Validation for selectedSkills",
-        "GET /settings returns arrays",
+        "MODEL_VARIANTS array in backend/src/providers/claude.ts contains 'claude-opus-4-7' instead of 'claude-opus-4-6'",
+        "Full variants list is: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']",
+        "getModelVariants() returns the updated list",
+        "New projects created with Claude provider default to 'claude-opus-4-7' (first entry in array)",
+        "Existing projects with 'claude-opus-4-6' in the database are NOT changed",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -24,112 +26,20 @@
     },
     {
       "id": "US-002",
-      "title": "Build provider selection UI",
-      "description": "As a user, I want to select which providers are active",
+      "title": "Update variant labels to show version numbers",
+      "description": "As a user, I want to see version numbers on model labels (e.g., 'Opus 4.7') so I know exactly which model version I'm using.",
       "acceptanceCriteria": [
-        "Multi-select checkbox group",
-        "Checkboxes reflect saved state",
-        "At least one provider must remain selected",
-        "Error clears when re-selecting",
-        "Replaces static list in-place",
+        "formatVariantLabel() in frontend/src/pages/Models.tsx returns version-suffixed labels",
+        "formatVariantLabel() in frontend/src/pages/Dashboard.tsx returns version-suffixed labels",
+        "Label mapping: claude-opus-4-7 -> 'Opus 4.7', claude-opus-4-6 -> 'Opus 4.6', claude-sonnet-4-6 -> 'Sonnet 4.6', claude-haiku-4-5-20251001 -> 'Haiku 4.5'",
+        "Custom/unknown model variants fall back to displaying the raw variant string",
         "Typecheck passes",
-        "Verify in browser"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-006",
-      "title": "Update file copy logic to respect settings",
-      "description": "fileCopier uses saved settings",
-      "acceptanceCriteria": [
-        "copyRalphFiles reads selectedSkills",
-        "Skills filtered based on selectedSkills",
-        "CLAUDE.md only for Claude provider",
-        "Codex skills to .agents/skills/",
-        "Deduplication for shared paths",
-        "Runner script for project provider"
-      ],
-      "priority": 2,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-003",
-      "title": "Build skills toggle UI",
-      "description": "Toggle which skills are included",
-      "acceptanceCriteria": [
-        "Master toggle",
-        "Three skill checkboxes",
-        "Master toggle state sync",
-        "Skills optional",
-        "Typecheck passes",
-        "Verify in browser"
-      ],
-      "priority": 3,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-004",
-      "title": "Live file preview",
-      "description": "See which files will be copied",
-      "acceptanceCriteria": [
-        "Relative destination paths",
-        "Updates immediately",
-        "Deduplicates paths",
-        "CLAUDE.md conditional",
-        "Empty state handled",
-        "Typecheck passes",
-        "Verify in browser"
-      ],
-      "priority": 4,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-005",
-      "title": "Unified Save button",
-      "description": "One Save button for all settings",
-      "acceptanceCriteria": [
-        "Single Save button",
-        "Sends all fields in one request",
-        "Disabled when no providers",
-        "Success/error feedback",
-        "Typecheck passes",
-        "Verify in browser"
-      ],
-      "priority": 5,
-      "passes": true,
-      "inProgress": false,
-      "notes": ""
-    },
-    {
-      "id": "US-007",
-      "title": "Stale file warning",
-      "description": "Warn about stale files when provider removed",
-      "acceptanceCriteria": [
-        "Show warning when provider deselected",
-        "Warning text",
-        "Yellow styling",
-        "Informational only",
-        "Dismisses after save",
-        "Typecheck passes",
-        "Verify in browser"
-      ],
-      "priority": 6,
-      "passes": true,
+      "passes": false,
       "inProgress": false,
       "notes": ""
     }
-  ],
-  "qualityChecks": {
-    "TypeScript compile (backend)": "cd backend && npm run build",
-    "TypeScript compile (frontend)": "cd frontend && npm run build"
-  }
+  ]
 }
