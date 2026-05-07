@@ -18,10 +18,13 @@ const PROVIDER_TABS = [
 ] as const;
 
 function formatVariantLabel(variant: string): string {
-  if (variant.includes('opus')) return 'Opus';
-  if (variant.includes('sonnet')) return 'Sonnet';
-  if (variant.includes('haiku')) return 'Haiku';
-  return variant;
+  const versionMap: Record<string, string> = {
+    'claude-opus-4-7': 'Opus 4.7',
+    'claude-opus-4-6': 'Opus 4.6',
+    'claude-sonnet-4-6': 'Sonnet 4.6',
+    'claude-haiku-4-5-20251001': 'Haiku 4.5',
+  };
+  return versionMap[variant] ?? variant;
 }
 
 /** Configuration for a provider's authentication section */

@@ -1,3 +1,8 @@
+## Codebase Patterns
+- MODEL_VARIANTS array in `backend/src/providers/claude.ts` controls both the default model (first entry) and available options in the UI
+- `formatVariantLabel()` is duplicated in `Models.tsx` and `Dashboard.tsx` — update both when changing model labels
+- Existing projects with old model variants in the DB are unaffected by provider changes
+
 # Ralph Progress Log
 Started: Thu May  7 18:39:21 UTC 2026
 ---
@@ -8,4 +13,14 @@ Started: Thu May  7 18:39:21 UTC 2026
 - **Learnings for future iterations:**
   - MODEL_VARIANTS array in claude.ts controls both the default model (first entry) and the available options in the UI
   - Existing projects with old model variants in the database are unaffected — the variant is stored per-project in the DB
+---
+
+## 2026-05-07 - US-002
+- Updated `formatVariantLabel()` in both `frontend/src/pages/Models.tsx` and `frontend/src/pages/Dashboard.tsx` to use a version map instead of substring matching
+- Label mapping: claude-opus-4-7 → 'Opus 4.7', claude-opus-4-6 → 'Opus 4.6', claude-sonnet-4-6 → 'Sonnet 4.6', claude-haiku-4-5-20251001 → 'Haiku 4.5'
+- Unknown/custom variants fall back to the raw variant string via nullish coalescing
+- Files changed: `frontend/src/pages/Models.tsx`, `frontend/src/pages/Dashboard.tsx`
+- **Learnings for future iterations:**
+  - `formatVariantLabel()` is duplicated in both Models.tsx and Dashboard.tsx — both must be updated in sync
+  - The Models page uses a configurable `formatLabel` prop on `ProviderTab`, but the default falls back to the module-level `formatVariantLabel`
 ---
