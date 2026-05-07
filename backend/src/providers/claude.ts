@@ -5,7 +5,7 @@ const SKILLS_TO_SYNC = ['prd', 'prd-questions', 'ralph'];
 const SCRIPTS_TO_SYNC = ['ralph-cc.sh', 'CLAUDE.md'];
 
 const MODEL_VARIANTS = [
-  'claude-opus-4-6',
+  'claude-opus-4-7',
   'claude-sonnet-4-6',
   'claude-haiku-4-5-20251001',
 ];
