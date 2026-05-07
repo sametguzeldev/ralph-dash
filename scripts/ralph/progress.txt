@@ -1,67 +1,11 @@
 # Ralph Progress Log
-Started: Wed Mar  4 21:45:19 UTC 2026
-
-## Codebase Patterns
-- Settings stored as key-value pairs in `settings` table; JSON arrays stored as stringified JSON
-- Use `INSERT OR IGNORE` for seeding defaults (idempotent, won't overwrite user changes)
-- Frontend `updateSettings` takes an object with optional fields, not positional args
-- Valid provider names come from `getAllProviders()` in the registry; valid skills are `prd`, `prd-questions`, `ralph`
-- Backend routes import from providers with `.js` extension (ESM)
+Started: Thu May  7 18:39:21 UTC 2026
 ---
 
-## 2026-03-04 - US-001
-- What was implemented: Added `selectedProviders` and `selectedSkills` as JSON arrays in the settings table with defaults seeded on startup. Updated GET /settings to return these arrays and PUT /settings to accept optional fields with validation. Updated frontend API types to match.
-- Files changed:
-  - `backend/src/db/schema.ts` — added `seedDefaultSelections()` function
-  - `backend/src/routes/settings.ts` — added provider/skill validation, made ralphPath optional in PUT, added helper functions
-  - `frontend/src/lib/api.ts` — added `selectedProviders`/`selectedSkills` to SettingsResponse, new UpdateSettingsRequest/Response interfaces, changed updateSettings signature
-  - `frontend/src/pages/Settings.tsx` — updated mutation to use object-based updateSettings
+## 2026-05-07 - US-001
+- Replaced `claude-opus-4-6` with `claude-opus-4-7` in MODEL_VARIANTS array in `backend/src/providers/claude.ts`
+- Files changed: `backend/src/providers/claude.ts`
 - **Learnings for future iterations:**
-  - PUT /settings now accepts partial updates (any combination of ralphPath, selectedProviders, selectedSkills)
-  - Provider validation uses `getAllProviders()` from the registry, so new providers auto-become valid
-  - Skills validation uses a hardcoded `VALID_SKILLS` array in settings.ts
-  - The Settings page mutation wraps ralphPath in `{ ralphPath: path }` — future stories adding UI controls should use the same pattern
----
-
-## 2026-03-04 21:53 - Parallel wave: US-002,US-006
-- Stories ran in parallel worktrees via `claude --worktree`
----
-
-## 2026-03-04 - US-003
-- What was implemented: Added skills toggle UI to Settings page with a master "All Skills" checkbox and three individual skill checkboxes (prd, prd-questions, ralph). Master toggle uses indeterminate state when partially selected. Skills state is loaded from and saved to the backend via selectedSkills.
-- Files changed:
-  - `frontend/src/pages/Settings.tsx` — added selectedSkills state, master toggle with indeterminate support, individual skill checkboxes, included selectedSkills in save mutation
-- **Learnings for future iterations:**
-  - React `ref` callback pattern for indeterminate checkbox: `ref={el => { if (el) el.indeterminate = ... }}`
-  - Skills are optional (unlike providers) — all can be unchecked
-  - The `ALL_SKILLS` constant is defined inline in the component; if more skills are added, this array needs updating
----
-
-## 2026-03-04 - US-004
-- What was implemented: Added a "Files to Sync" preview section to the Settings page that computes and displays the list of files that will be copied to projects based on current provider and skill selections. Uses `useMemo` for reactive updates, deduplicates via `Set`, and shows an empty state message when no files match.
-- Files changed:
-  - `frontend/src/pages/Settings.tsx` — added `useMemo` import, `filePreview` computed list, and "Files to Sync" UI section
-- **Learnings for future iterations:**
-  - Skills dir is `.claude/skills` for most providers but `.agents/skills` for codex — this mapping is duplicated between frontend (Settings.tsx) and backend (fileCopier.ts)
-  - Runner scripts come from `models` query (`ProviderResponse.runner_script`) — available in Settings because `getModels` is already fetched
-  - File preview is purely frontend-computed from local state, no API call needed
----
-
-## 2026-03-04 - US-005
-- What was implemented: Replaced the inline Save button next to the Ralph path input with a single unified "Save Settings" button at the bottom of the settings card. The button saves ralphPath, selectedProviders, and selectedSkills in one request. It is disabled when no providers are selected or while saving. Success/error feedback shown below the button.
-- Files changed:
-  - `frontend/src/pages/Settings.tsx` — removed inline Save button from path row, added full-width Save Settings button at bottom of card, changed mutation to use no-arg mutate (reads ralphPath from state directly), updated success message to generic "Settings saved successfully"
-- **Learnings for future iterations:**
-  - The mutation `mutationFn` can close over component state directly instead of taking args — simpler when multiple state values need to be sent
-  - Git Configuration remains a separate card with its own Save/Remove buttons since it's a distinct concern (Docker-only)
----
-
-## 2026-03-04 - US-007
-- What was implemented: Added a yellow warning banner that appears when a previously-saved provider is deselected, informing the user that stale files may remain in existing projects. The warning tracks saved vs. current provider selections and dismisses after a successful save.
-- Files changed:
-  - `frontend/src/pages/Settings.tsx` — added `savedProviders` and `staleWarningDismissed` state, computed `removedProviders`/`showStaleWarning`, added yellow warning div, reset dismissed state on provider toggle, dismiss on save success
-- **Learnings for future iterations:**
-  - Pattern for tracking "dirty" state: keep a `saved*` mirror of server state, compare against local state to detect changes
-  - Yellow warning styling: `border-yellow-500/30 bg-yellow-500/10 text-yellow-400` for informational warnings
-  - `staleWarningDismissed` flag resets when user toggles providers again, ensuring warning reappears if they make further changes
+  - MODEL_VARIANTS array in claude.ts controls both the default model (first entry) and the available options in the UI
+  - Existing projects with old model variants in the database are unaffected — the variant is stored per-project in the DB
 ---
