@@ -264,6 +264,110 @@ projectsRouter.put('/:id/model-variant', (req, res) => {
   res.json({ success: true });
 });
 
+// ---- Review Provider / Model Variant ----
+
+projectsRouter.put('/:id/review-provider', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const { provider } = req.body;
+
+  if (provider === null || provider === undefined) {
+    db.prepare('UPDATE projects SET review_provider = NULL, review_model_variant = NULL WHERE id = ?')
+      .run(Number(id));
+    return res.json({ success: true });
+  }
+
+  if (typeof provider !== 'string') {
+    return res.status(400).json({ error: 'provider must be a string or null' });
+  }
+
+  const trimmed = provider.trim();
+  if (!trimmed) {
+    db.prepare('UPDATE projects SET review_provider = NULL, review_model_variant = NULL WHERE id = ?')
+      .run(Number(id));
+    return res.json({ success: true });
+  }
+
+  let registeredProvider;
+  try {
+    registeredProvider = getProvider(trimmed);
+  } catch {
+    return res.status(400).json({ error: `Unknown provider: ${trimmed}` });
+  }
+
+  const variants = registeredProvider.getModelVariants();
+  let defaultVariant: string | null = null;
+
+  if (variants.length > 0) {
+    const row = db.prepare('SELECT config FROM providers WHERE name = ?').get(trimmed) as { config: string | null } | undefined;
+    if (row?.config) {
+      try {
+        const parsed = JSON.parse(row.config) as Record<string, unknown>;
+        const providerConfig = registeredProvider.parseConfig(parsed);
+        if (providerConfig.model && variants.includes(providerConfig.model)) {
+          defaultVariant = providerConfig.model;
+        } else {
+          defaultVariant = variants[0];
+        }
+      } catch {
+        defaultVariant = variants[0];
+      }
+    } else {
+      defaultVariant = variants[0];
+    }
+  }
+
+  db.prepare('UPDATE projects SET review_provider = ?, review_model_variant = ? WHERE id = ?')
+    .run(trimmed, defaultVariant, Number(id));
+
+  res.json({ success: true });
+});
+
+projectsRouter.put('/:id/review-model-variant', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const { modelVariant } = req.body;
+  if (!modelVariant || typeof modelVariant !== 'string') {
+    return res.status(400).json({ error: 'modelVariant is required' });
+  }
+
+  if (!project.review_provider) {
+    return res.status(400).json({ error: 'Project has no review provider assigned' });
+  }
+
+  const trimmed = modelVariant.trim();
+  if (!trimmed) {
+    return res.status(400).json({ error: 'modelVariant cannot be empty' });
+  }
+
+  let registeredProvider;
+  try {
+    registeredProvider = getProvider(project.review_provider);
+  } catch {
+    return res.status(400).json({ error: 'Unknown review provider' });
+  }
+
+  const allowedVariants = registeredProvider.getModelVariants();
+  if (allowedVariants.length > 0 && !allowedVariants.includes(trimmed)) {
+    return res.status(400).json({ error: `Invalid variant '${trimmed}' for provider '${project.review_provider}'. Allowed: ${allowedVariants.join(', ')}` });
+  }
+
+  db.prepare('UPDATE projects SET review_model_variant = ? WHERE id = ?')
+    .run(trimmed, Number(id));
+
+  res.json({ success: true });
+});
+
 // ---- Archives ----
 
 projectsRouter.get('/:id/archives', (req, res) => {
