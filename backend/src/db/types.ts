@@ -5,6 +5,8 @@ export interface ProjectRow {
   created_at: string;
   provider: string | null;
   model_variant: string | null;
+  review_provider: string | null;
+  review_model_variant: string | null;
 }
 
 export interface ProviderRow {
