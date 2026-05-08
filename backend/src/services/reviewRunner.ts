@@ -26,33 +26,33 @@ export function startReview(
     reviewRuns.delete(projectId);
   }
 
-  const projectRow = db.prepare('SELECT path, provider, model_variant FROM projects WHERE id = ?').get(projectId) as
-    { path: string; provider: string | null; model_variant: string | null } | undefined;
+  const projectRow = db.prepare('SELECT path, review_provider, review_model_variant FROM projects WHERE id = ?').get(projectId) as
+    { path: string; review_provider: string | null; review_model_variant: string | null } | undefined;
 
   if (!projectRow) {
     return { ok: false, error: 'Project not found' };
   }
 
-  if (!projectRow.provider) {
-    return { ok: false, error: 'Project has no provider assigned. Configure a provider first.' };
+  if (!projectRow.review_provider) {
+    return { ok: false, error: 'No review provider configured for this project' };
   }
 
   let provider;
   try {
-    provider = getProvider(projectRow.provider);
+    provider = getProvider(projectRow.review_provider);
   } catch {
-    return { ok: false, error: `Unknown provider: ${projectRow.provider}` };
+    return { ok: false, error: `Unknown provider: ${projectRow.review_provider}` };
   }
 
-  const providerRow = db.prepare('SELECT config, is_configured FROM providers WHERE name = ?').get(projectRow.provider) as
+  const providerRow = db.prepare('SELECT config, is_configured FROM providers WHERE name = ?').get(projectRow.review_provider) as
     { config: string | null; is_configured: number } | undefined;
 
   if (!providerRow || !providerRow.is_configured) {
-    return { ok: false, error: `Provider '${projectRow.provider}' is not configured. Please configure authentication on the Models page first.` };
+    return { ok: false, error: `Provider '${projectRow.review_provider}' is not configured. Please configure authentication on the Models page first.` };
   }
 
-  const providerConfig = loadProviderConfig(projectRow.provider);
-  const runEnv = buildRunEnv(projectRow.provider, projectRow.model_variant ?? undefined, providerConfig);
+  const providerConfig = loadProviderConfig(projectRow.review_provider);
+  const runEnv = buildRunEnv(projectRow.review_provider, projectRow.review_model_variant ?? undefined, providerConfig);
 
   let command: string;
   let args: string[];
@@ -64,7 +64,7 @@ export function startReview(
       '--print',
       '--dangerously-skip-permissions',
       '--verbose',
-      ...provider.getCliArgs(providerConfig, projectRow.model_variant ?? undefined),
+      ...provider.getCliArgs(providerConfig, projectRow.review_model_variant ?? undefined),
     ];
     command = 'claude';
   } else if (provider.name === 'codex') {
