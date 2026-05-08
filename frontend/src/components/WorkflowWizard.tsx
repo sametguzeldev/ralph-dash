@@ -738,6 +738,7 @@ function ReviewStep({
   const [hasStarted, setHasStarted] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
   const { data: reviewStatus } = useQuery({
     queryKey: ['review-status', projectId],
@@ -803,6 +804,23 @@ function ReviewStep({
       onGoToRun();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save review feedback');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleSkipArchive = async () => {
+    setShowSkipConfirm(false);
+    setActionPending(true);
+    setError(null);
+    try {
+      await archiveProject(projectId);
+      queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
+      setHasStarted(false);
+      setSuccessMessage('Feature archived successfully! Workflow has been reset.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive project');
     } finally {
       setActionPending(false);
     }
@@ -901,6 +919,38 @@ function ReviewStep({
           >
             {actionPending ? 'Saving feedback...' : 'Fix & Re-run'}
           </button>
+        </div>
+      )}
+
+      {hasPrdJson && prdJsonValid && !isReviewRunning && (
+        <div className="pt-2 border-t border-gray-700">
+          {showSkipConfirm ? (
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-gray-300">Archive this feature without reviewing?</p>
+              <button
+                onClick={handleSkipArchive}
+                disabled={actionPending}
+                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-xs font-medium"
+              >
+                {actionPending ? 'Archiving...' : 'Yes, archive'}
+              </button>
+              <button
+                onClick={() => setShowSkipConfirm(false)}
+                disabled={actionPending}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-xs font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowSkipConfirm(true)}
+              disabled={actionPending}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium text-gray-300"
+            >
+              Skip &amp; Archive
+            </button>
+          )}
         </div>
       )}
     </div>
