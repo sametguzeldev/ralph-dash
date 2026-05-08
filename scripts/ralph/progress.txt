@@ -1,26 +1,44 @@
-## Codebase Patterns
-- MODEL_VARIANTS array in `backend/src/providers/claude.ts` controls both the default model (first entry) and available options in the UI
-- `formatVariantLabel()` is duplicated in `Models.tsx` and `Dashboard.tsx` — update both when changing model labels
-- Existing projects with old model variants in the DB are unaffected by provider changes
-
 # Ralph Progress Log
-Started: Thu May  7 18:39:21 UTC 2026
+Started: Fri May  8 11:08:52 UTC 2026
 ---
 
-## 2026-05-07 - US-001
-- Replaced `claude-opus-4-6` with `claude-opus-4-7` in MODEL_VARIANTS array in `backend/src/providers/claude.ts`
-- Files changed: `backend/src/providers/claude.ts`
-- **Learnings for future iterations:**
-  - MODEL_VARIANTS array in claude.ts controls both the default model (first entry) and the available options in the UI
-  - Existing projects with old model variants in the database are unaffected — the variant is stored per-project in the DB
+## 2026-05-08 11:10 - Parallel wave: US-001,US-002
+- Stories ran in parallel worktrees via `claude --worktree`
 ---
 
-## 2026-05-07 - US-002
-- Updated `formatVariantLabel()` in both `frontend/src/pages/Models.tsx` and `frontend/src/pages/Dashboard.tsx` to use a version map instead of substring matching
-- Label mapping: claude-opus-4-7 → 'Opus 4.7', claude-opus-4-6 → 'Opus 4.6', claude-sonnet-4-6 → 'Sonnet 4.6', claude-haiku-4-5-20251001 → 'Haiku 4.5'
-- Unknown/custom variants fall back to the raw variant string via nullish coalescing
-- Files changed: `frontend/src/pages/Models.tsx`, `frontend/src/pages/Dashboard.tsx`
+## 2026-05-08 11:12 - Parallel wave: US-003,US-004
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-05-08 11:16 - Parallel wave: US-005,US-006,US-007
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-05-08 11:21 - Parallel wave: US-008,US-009
+- Stories ran in parallel worktrees via `claude --worktree`
+---
+
+## 2026-05-08 - US-010
+- Added post-review action buttons (Done and Fix & Re-run) to ReviewStep
+- Done button calls archiveProject API, invalidates workflow/project queries, shows success message
+- Fix & Re-run button calls saveReviewFeedback API, then navigates wizard to Run step (step 4)
+- Both buttons disabled while review is still running via `reviewDone` derived state
+- Added `saveReviewFeedback` and `archiveProject` API functions to api.ts
+- Files changed: frontend/src/components/WorkflowWizard.tsx, frontend/src/lib/api.ts
 - **Learnings for future iterations:**
-  - `formatVariantLabel()` is duplicated in both Models.tsx and Dashboard.tsx — both must be updated in sync
-  - The Models page uses a configurable `formatLabel` prop on `ProviderTab`, but the default falls back to the module-level `formatVariantLabel`
+  - ReviewStep uses `onGoToRun` callback from parent to navigate; parent calls `setActiveStep(3)` + `setUserOverride(true)` to force step change
+  - `reviewDone` is derived from `hasStarted && !isReviewRunning && status in (completed, failed)` to only show action buttons after a real review run
+  - The `queryClient.invalidateQueries` pattern is used to refresh workflow state after archive resets files
+---
+
+## 2026-05-08 - US-011
+- Added "Skip & Archive" button to ReviewStep, always visible when prd.json is valid and review isn't running
+- Clicking shows inline confirmation: "Archive this feature without reviewing?" with Yes/Cancel buttons
+- On confirmation, runs the same archiveProject flow as the Done button (archive + invalidate queries + success message)
+- Added `showSkipConfirm` state and `handleSkipArchive` handler
+- Files changed: frontend/src/components/WorkflowWizard.tsx
+- **Learnings for future iterations:**
+  - Inline confirmation patterns (show/hide with state toggle) work well for destructive actions instead of browser confirm() dialogs
+  - The `&amp;` entity is needed for `&` in JSX text content (used for "Skip & Archive" button label)
+  - Gating UI elements on `hasPrdJson && prdJsonValid` prevents actions on invalid state without needing the review provider
 ---

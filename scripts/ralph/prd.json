@@ -1,7 +1,7 @@
 {
   "project": "RalphDash",
-  "branchName": "ralph/opus-4-7-support",
-  "description": "Opus 4.7 Model Support - Replace Opus 4.6 with Opus 4.7 and add version numbers to model labels",
+  "branchName": "ralph/review-workflow-step",
+  "description": "Review Workflow Step - Add a Review step (step 5) to the workflow wizard for automated code reviews with Done/Fix & Re-run actions",
   "qualityChecks": {
     "TypeScript compile (backend)": "cd backend && npm run build",
     "TypeScript compile (frontend)": "cd frontend && npm run build"
@@ -9,14 +9,13 @@
   "userStories": [
     {
       "id": "US-001",
-      "title": "Replace Opus 4.6 with Opus 4.7 in Claude provider variants",
-      "description": "As a developer, I need the Claude provider to offer Opus 4.7 instead of Opus 4.6 so that new projects use the latest model.",
+      "title": "Add review provider columns to projects table",
+      "description": "As a developer, I need to store each project's review provider and review model variant in the database so they persist across sessions.",
       "acceptanceCriteria": [
-        "MODEL_VARIANTS array in backend/src/providers/claude.ts contains 'claude-opus-4-7' instead of 'claude-opus-4-6'",
-        "Full variants list is: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']",
-        "getModelVariants() returns the updated list",
-        "New projects created with Claude provider default to 'claude-opus-4-7' (first entry in array)",
-        "Existing projects with 'claude-opus-4-6' in the database are NOT changed",
+        "Add review_provider column to projects table (TEXT, nullable, e.g. 'claude' or 'codex')",
+        "Add review_model_variant column to projects table (TEXT, nullable)",
+        "Migration is idempotent (safe to run multiple times)",
+        "Existing projects get NULL for both columns (no default review provider)",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -26,17 +25,175 @@
     },
     {
       "id": "US-002",
-      "title": "Update variant labels to show version numbers",
-      "description": "As a user, I want to see version numbers on model labels (e.g., 'Opus 4.7') so I know exactly which model version I'm using.",
+      "title": "Update runner script to pick up review-feedback.md",
+      "description": "As a developer, I need the Ralph runner to include review-feedback.md as context when it exists, so Fix & Re-run passes review findings to the next run.",
       "acceptanceCriteria": [
-        "formatVariantLabel() in frontend/src/pages/Models.tsx returns version-suffixed labels",
-        "formatVariantLabel() in frontend/src/pages/Dashboard.tsx returns version-suffixed labels",
-        "Label mapping: claude-opus-4-7 -> 'Opus 4.7', claude-opus-4-6 -> 'Opus 4.6', claude-sonnet-4-6 -> 'Sonnet 4.6', claude-haiku-4-5-20251001 -> 'Haiku 4.5'",
-        "Custom/unknown model variants fall back to displaying the raw variant string",
+        "Runner script checks for scripts/ralph/review-feedback.md at startup",
+        "If the file exists, its contents are prepended to the context for the Ralph run (e.g. appended to initial message or injected as REVIEW_FEEDBACK env var)",
+        "After a successful run, review-feedback.md is automatically deleted",
+        "If review-feedback.md does not exist, the runner behaves exactly as before (no regression)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "API endpoints for review provider settings",
+      "description": "As a developer, I need API endpoints to get and set the review provider and model variant per-project.",
+      "acceptanceCriteria": [
+        "PUT /api/projects/:id/review-provider accepts { provider: string | null } and updates review_provider column; setting to null also clears review_model_variant",
+        "PUT /api/projects/:id/review-model-variant accepts { modelVariant: string } and updates review_model_variant column",
+        "Returns 404 if project not found, 400 if provider name is invalid",
+        "GET /api/projects/:id/status response includes review_provider and review_model_variant fields",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create reviewRunner service",
+      "description": "As a developer, I need a dedicated service that spawns and manages review processes for both Codex and Claude providers uniformly.",
+      "acceptanceCriteria": [
+        "New file backend/src/services/reviewRunner.ts with startReview(projectId, baseBranch), stopReview(projectId), getStatus(projectId), getOutput(projectId, since) methods",
+        "For Claude provider: spawns claude CLI with --print flag and a fixed prompt invoking /simplify with base branch context",
+        "For Codex provider: spawns codex exec review --base <baseBranch> in the project directory",
+        "Injects provider-specific env vars (API keys) from the provider's config using getEnvVars() — reuses existing provider auth",
+        "Buffers output (max 500 lines) consistent with existing processManager/skillRunner patterns",
+        "Supports stopping a running review (kills process group)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Review API routes",
+      "description": "As a developer, I need API endpoints to start, stop, and stream review output so the frontend can control the review process.",
+      "acceptanceCriteria": [
+        "POST /api/projects/:id/review/start accepts { baseBranch: string }, starts review using project's configured review provider",
+        "Returns 400 if no review provider configured, 409 if review already running",
+        "POST /api/projects/:id/review/stop stops a running review",
+        "GET /api/projects/:id/review/status returns { running: boolean, exitCode?: number } matching existing runner/skill status shape",
+        "GET /api/projects/:id/review/output?since=N returns buffered output lines since index N",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Archive API endpoint",
+      "description": "As a developer, I need an API endpoint that archives the current prd.json and progress files and resets the workflow.",
+      "acceptanceCriteria": [
+        "POST /api/projects/:id/archive creates scripts/ralph/archive/{YYYY-MM-DD}-{featureName}/ directory in the project",
+        "Moves scripts/ralph/prd.json into the archive folder",
+        "Moves scripts/ralph/progress.txt into the archive folder (if it exists)",
+        "Moves .last-branch into the archive folder (if it exists)",
+        "Cleans up scripts/ralph/review-feedback.md if it exists",
+        "Feature name is derived from prd.json's project field (kebab-cased)",
+        "If archive folder already exists (same day, same feature), appends a numeric suffix (-2, -3)",
+        "Returns 404 if project not found, 400 if no prd.json exists to archive",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add review provider settings UI to project settings",
+      "description": "As a user, I want to configure which provider and model variant are used for code reviews on my project.",
+      "acceptanceCriteria": [
+        "Project settings panel shows a Review Provider dropdown alongside existing provider/model dropdowns",
+        "Dropdown lists available providers (claude, codex) or shows Not configured when null",
+        "When a review provider is selected, a Review Model dropdown appears listing that provider's model variants",
+        "Selecting a provider/model variant calls API to persist the choice",
+        "Clearing the review provider also clears the review model variant",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 2,
+      "priority": 3,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Save review feedback API endpoint",
+      "description": "As a developer, I need an API endpoint that saves review output to a file so the next run can pick it up as context.",
+      "acceptanceCriteria": [
+        "POST /api/projects/:id/review/save-feedback saves the current review output to scripts/ralph/review-feedback.md in the project directory",
+        "File content is the full review output as plain text/markdown",
+        "Returns 400 if no review output exists (review hasn't run)",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Review step UI in workflow wizard",
+      "description": "As a user, I want a Review step (step 5) in the workflow wizard where I can enter a base branch, start a review, and see the output streamed in real-time.",
+      "acceptanceCriteria": [
+        "WorkflowWizard shows 5 steps: Questions, PRD, prd.json, Run, Review",
+        "WizardStepIndicator renders the 5th Review step",
+        "Review step is visible/navigable once workflow state is prd-json-ready (same as Run)",
+        "Review step shows a base branch text input pre-filled with main",
+        "Start Review button triggers POST /api/projects/:id/review/start with the entered base branch",
+        "Start Review button is disabled if no review provider is configured; shows a message linking to project settings",
+        "While review runs, output streams in the log viewer (same component/style as Run output)",
+        "Stop Review button appears while review is running",
+        "Review is re-runnable — user can click Start Review again after completion (previous output replaced)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Post-review actions (Done and Fix & Re-run)",
+      "description": "As a user, after a review completes I want to either archive the project (Done) or send the feedback back to the Run step for fixes (Fix & Re-run).",
+      "acceptanceCriteria": [
+        "After review completes (process exits), two buttons appear: Done and Fix & Re-run",
+        "Done button creates an archive snapshot via POST /api/projects/:id/archive, then resets workflow to no-files and shows success message",
+        "Fix & Re-run button saves review output via POST /api/projects/:id/review/save-feedback, then navigates wizard back to the Run step (step 4)",
+        "Both buttons are disabled while review is still running",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "inProgress": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Skip Review option",
+      "description": "As a user, I want to skip the review step and go straight to archiving when I don't need a code review.",
+      "acceptanceCriteria": [
+        "Review step shows a Skip & Archive button that is always visible, even before running a review",
+        "Clicking it shows a brief confirmation dialog: Archive this feature without reviewing?",
+        "On confirmation, triggers the same archive flow as the Done button via POST /api/projects/:id/archive",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
       "passes": true,
       "inProgress": false,
       "notes": ""
