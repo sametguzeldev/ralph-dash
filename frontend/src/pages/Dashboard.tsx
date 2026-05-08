@@ -304,6 +304,7 @@ export function Dashboard() {
         projectId={projectId}
         isRunning={isRunning}
         hasProvider={hasProvider}
+        hasReviewProvider={!!data.project.review_provider}
         onStartRun={() => startMutation.mutateAsync()}
         onStopRun={() => stopMutation.mutateAsync()}
       />

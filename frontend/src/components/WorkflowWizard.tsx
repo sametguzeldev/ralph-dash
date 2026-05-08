@@ -7,7 +7,12 @@ import {
   startSkillRun,
   stopSkillRun,
   deleteWorkflowFile,
+  startReview,
+  stopReview,
+  getReviewStatus,
+  getReviewOutput,
   type WorkflowStatus,
+  type ReviewStatus,
 } from '../lib/api';
 import { WizardStepIndicator } from './WizardStepIndicator';
 import { FileEditor } from './FileEditor';
@@ -34,11 +39,12 @@ interface WorkflowWizardProps {
   projectId: number;
   isRunning: boolean;
   hasProvider: boolean;
+  hasReviewProvider: boolean;
   onStartRun: () => Promise<unknown>;
   onStopRun: () => Promise<unknown>;
 }
 
-const STEP_LABELS = ['Questions', 'PRD', 'prd.json', 'Run'];
+const STEP_LABELS = ['Questions', 'PRD', 'prd.json', 'Run', 'Review'];
 
 function stepFromWorkflow(w: WorkflowStatus | undefined, isRunning: boolean): number {
   if (!w) return 0;
@@ -60,7 +66,7 @@ function stepStatuses(w: WorkflowStatus | undefined, isRunning: boolean) {
   }));
 }
 
-export function WorkflowWizard({ projectId, isRunning, hasProvider, onStartRun, onStopRun }: WorkflowWizardProps) {
+export function WorkflowWizard({ projectId, isRunning, hasProvider, hasReviewProvider, onStartRun, onStopRun }: WorkflowWizardProps) {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(isMobile);
@@ -170,6 +176,13 @@ export function WorkflowWizard({ projectId, isRunning, hasProvider, onStartRun, 
                 workflow={workflow}
                 onStartRun={onStartRun}
                 onStopRun={onStopRun}
+              />
+            )}
+            {activeStep === 4 && (
+              <ReviewStep
+                projectId={projectId}
+                hasReviewProvider={hasReviewProvider}
+                workflow={workflow}
               />
             )}
           </div>
@@ -693,6 +706,262 @@ function RunStep({
       {(isRunning || hasStarted) && (
         <RunOutputLog projectId={projectId} running={isRunning} />
       )}
+    </div>
+  );
+}
+
+// --- Step 5: Review ---
+
+function ReviewStep({
+  projectId,
+  hasReviewProvider,
+  workflow,
+}: {
+  projectId: number;
+  hasReviewProvider: boolean;
+  workflow: WorkflowStatus | undefined;
+}) {
+  const hasPrdJson = workflow?.hasPrdJson ?? false;
+  const prdJsonValid = workflow?.prdJsonValid ?? false;
+  const [baseBranch, setBaseBranch] = useState('main');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasStarted, setHasStarted] = useState(false);
+
+  const { data: reviewStatus } = useQuery({
+    queryKey: ['review-status', projectId],
+    queryFn: () => getReviewStatus(projectId),
+    refetchInterval: (query) => query.state.data?.running ? 2000 : 5000,
+  });
+
+  const isReviewRunning = reviewStatus?.running ?? false;
+
+  useEffect(() => {
+    if (isReviewRunning) setHasStarted(true);
+  }, [isReviewRunning]);
+
+  const handleStart = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await startReview(projectId, baseBranch);
+      setHasStarted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start review');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleStop = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await stopReview(projectId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop review');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const canStart = hasPrdJson && prdJsonValid && hasReviewProvider && !isReviewRunning && baseBranch.trim().length > 0;
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h4 className="text-sm font-medium text-gray-200 mb-1">Code Review</h4>
+        <p className="text-xs text-gray-500">
+          Run an AI-powered review of changes on the current branch against the base branch.
+        </p>
+      </div>
+
+      {!hasReviewProvider && (
+        <p className="text-xs text-amber-400">
+          No review provider configured. Select a review provider at the top of the page to enable reviews.
+        </p>
+      )}
+
+      {!hasPrdJson && (
+        <p className="text-xs text-amber-400">
+          No prd.json found. Complete the previous steps first.
+        </p>
+      )}
+
+      {hasPrdJson && !prdJsonValid && (
+        <p className="text-xs text-amber-400">
+          prd.json has validation errors. Go back to step 3 to fix them.
+        </p>
+      )}
+
+      <div className="flex flex-col md:flex-row gap-2">
+        <div className="flex items-center gap-2 flex-1">
+          <label className="text-xs text-gray-400 shrink-0">Base branch</label>
+          <input
+            type="text"
+            value={baseBranch}
+            onChange={(e) => setBaseBranch(e.target.value)}
+            disabled={isReviewRunning}
+            placeholder="main"
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-ralph-500 disabled:opacity-50"
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {isReviewRunning ? (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleStop}
+            disabled={pending}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+          >
+            {pending ? 'Stopping...' : 'Stop Review'}
+          </button>
+          <p className="text-xs text-green-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Reviewing
+          </p>
+        </div>
+      ) : (
+        <button
+          onClick={handleStart}
+          disabled={!canStart || pending}
+          className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+        >
+          {pending ? 'Starting...' : 'Start Review'}
+        </button>
+      )}
+
+      {(isReviewRunning || hasStarted) && (
+        <ReviewOutputLog projectId={projectId} running={isReviewRunning} reviewStatus={reviewStatus ?? null} />
+      )}
+    </div>
+  );
+}
+
+function ReviewOutputLog({
+  projectId,
+  running,
+  reviewStatus,
+}: {
+  projectId: number;
+  running: boolean;
+  reviewStatus: ReviewStatus | null;
+}) {
+  const [lines, setLines] = useState<string[]>([]);
+  const [elapsed, setElapsed] = useState('');
+  const sinceRef = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevRunningRef = useRef(running);
+
+  useEffect(() => {
+    if (running && !prevRunningRef.current) {
+      setLines([]);
+      sinceRef.current = 0;
+    }
+    prevRunningRef.current = running;
+  }, [running]);
+
+  useEffect(() => {
+    if (!running || !reviewStatus?.startedAt) return;
+    const start = new Date(reviewStatus.startedAt).getTime();
+    const tick = () => {
+      const diff = Math.floor((Date.now() - start) / 1000);
+      const m = Math.floor(diff / 60);
+      const s = diff % 60;
+      setElapsed(m > 0 ? `${m}m ${s}s` : `${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [running, reviewStatus?.startedAt]);
+
+  const status = reviewStatus?.status;
+  const isDone = status === 'completed' || status === 'failed';
+
+  useEffect(() => {
+    let active = true;
+    let finalFetched = false;
+
+    const fetchOutput = async () => {
+      try {
+        const data = await getReviewOutput(projectId, sinceRef.current);
+        if (!active) return;
+        if (data.lines.length > 0) {
+          setLines(prev => [...prev, ...data.lines]);
+          sinceRef.current = data.total;
+        }
+      } catch {
+        // ignore fetch errors
+      }
+    };
+
+    fetchOutput();
+
+    if (running) {
+      const id = setInterval(fetchOutput, 1000);
+      return () => { active = false; clearInterval(id); };
+    }
+
+    if (isDone && !finalFetched) {
+      finalFetched = true;
+      const timeout = setTimeout(fetchOutput, 500);
+      return () => { active = false; clearTimeout(timeout); };
+    }
+
+    return () => { active = false; };
+  }, [running, isDone, projectId]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  if (lines.length === 0 && !running && !isDone) return null;
+
+  const isCompleted = status === 'completed';
+  const isFailed = status === 'failed';
+
+  return (
+    <div className="bg-gray-950 rounded-lg overflow-hidden">
+      <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          Review Output
+          {running && (
+            <span className="text-ralph-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-ralph-400 animate-pulse" />
+              Running
+            </span>
+          )}
+          {isCompleted && <span className="text-green-400">Completed</span>}
+          {isFailed && <span className="text-red-400">Failed{reviewStatus?.exitCode != null ? ` (exit ${reviewStatus.exitCode})` : ''}</span>}
+        </div>
+        {elapsed && (
+          <span className={isDone ? 'text-gray-600' : 'text-gray-400'}>{elapsed}</span>
+        )}
+      </div>
+      <div
+        ref={scrollRef}
+        className="h-36 md:h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
+      >
+        {lines.map((line, i) => (
+          <div key={i} className={`whitespace-pre-wrap ${line.startsWith('Error') ? 'text-red-400' : ''}`}>
+            {line}
+          </div>
+        ))}
+        {lines.length === 0 && running && (
+          <span className="text-gray-600 flex items-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-gray-600 border-t-ralph-400 rounded-full animate-spin" />
+            Waiting for output...
+          </span>
+        )}
+        {lines.length === 0 && !running && (
+          <span className="text-gray-600">No output captured.</span>
+        )}
+      </div>
     </div>
   );
 }
