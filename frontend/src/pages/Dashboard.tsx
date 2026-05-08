@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProjectStatus, startRun, stopRun, syncProjectFiles, getModels, saveProjectProvider, saveProjectModelVariant } from '../lib/api';
+import { getProjectStatus, startRun, stopRun, syncProjectFiles, getModels, saveProjectProvider, saveProjectModelVariant, saveProjectReviewProvider, saveProjectReviewModelVariant } from '../lib/api';
 import type { ProviderResponse } from '../lib/api';
 import { KanbanBoard } from '../components/KanbanBoard';
 import { ProgressTimeline } from '../components/ProgressTimeline';
@@ -67,6 +67,24 @@ export function Dashboard() {
     },
   });
 
+  const reviewProviderMutation = useMutation({
+    mutationFn: (provider: string | null) => saveProjectReviewProvider(projectId, provider),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
+    onError: (err: Error) => {
+      setSyncMsg({ type: 'error', text: err.message });
+      setTimeout(() => setSyncMsg(null), 5000);
+    },
+  });
+
+  const reviewModelVariantMutation = useMutation({
+    mutationFn: (variant: string) => saveProjectReviewModelVariant(projectId, variant),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-status', projectId] }),
+    onError: (err: Error) => {
+      setSyncMsg({ type: 'error', text: err.message });
+      setTimeout(() => setSyncMsg(null), 5000);
+    },
+  });
+
   const isMobile = useIsMobile();
   const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -109,6 +127,14 @@ export function Dashboard() {
   const rawModelVariants = selectedProvider?.config?.modelVariants;
   const modelVariants = Array.isArray(rawModelVariants)
     ? rawModelVariants.filter((v): v is string => typeof v === 'string')
+    : [];
+
+  const selectedReviewProvider: ProviderResponse | undefined = providers?.find(
+    (p) => p.name === data.project.review_provider
+  );
+  const rawReviewModelVariants = selectedReviewProvider?.config?.modelVariants;
+  const reviewModelVariants = Array.isArray(rawReviewModelVariants)
+    ? rawReviewModelVariants.filter((v): v is string => typeof v === 'string')
     : [];
 
   return (
@@ -171,6 +197,45 @@ export function Dashboard() {
                   >
                     <option value="" disabled>Select...</option>
                     {modelVariants.map((v) => (
+                      <option key={v} value={v}>
+                        {formatVariantLabel(v)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-gray-500">Review Provider</label>
+                <select
+                  value={data.project.review_provider ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    reviewProviderMutation.mutate(val === '' ? null : val);
+                  }}
+                  disabled={reviewProviderMutation.isPending}
+                  className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2 py-1 focus:outline-none focus:border-ralph-500"
+                >
+                  <option value="">Not configured</option>
+                  {providers.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name.charAt(0).toUpperCase() + p.name.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {data.project.review_provider && reviewModelVariants.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-gray-500">Review Model</label>
+                  <select
+                    value={data.project.review_model_variant ?? ''}
+                    onChange={(e) => reviewModelVariantMutation.mutate(e.target.value)}
+                    disabled={reviewModelVariantMutation.isPending}
+                    className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2 py-1 focus:outline-none focus:border-ralph-500"
+                  >
+                    <option value="" disabled>Select...</option>
+                    {reviewModelVariants.map((v) => (
                       <option key={v} value={v}>
                         {formatVariantLabel(v)}
                       </option>

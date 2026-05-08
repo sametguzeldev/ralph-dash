@@ -144,6 +144,20 @@ export function saveProjectModelVariant(projectId: number, variant: string) {
   });
 }
 
+export function saveProjectReviewProvider(projectId: number, provider: string | null) {
+  return request<{ success: boolean }>(`/projects/${projectId}/review-provider`, {
+    method: 'PUT',
+    body: JSON.stringify({ provider }),
+  });
+}
+
+export function saveProjectReviewModelVariant(projectId: number, modelVariant: string) {
+  return request<{ success: boolean }>(`/projects/${projectId}/review-model-variant`, {
+    method: 'PUT',
+    body: JSON.stringify({ modelVariant }),
+  });
+}
+
 // Projects
 export interface ProjectSummary {
   id: number;
@@ -213,7 +227,7 @@ export interface ProgressData {
 }
 
 export interface ProjectStatus {
-  project: { id: number; name: string; path: string; provider: string | null; model_variant: string | null };
+  project: { id: number; name: string; path: string; provider: string | null; model_variant: string | null; review_provider: string | null; review_model_variant: string | null };
   prd: PrdDataWithStatus | null;
   progress: ProgressData | null;
   branch: string | null;
