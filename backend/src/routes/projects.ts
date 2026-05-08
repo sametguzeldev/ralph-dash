@@ -370,6 +370,69 @@ projectsRouter.put('/:id/review-model-variant', (req, res) => {
 
 // ---- Archives ----
 
+projectsRouter.post('/:id/archive', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const ralphPath = path.join(project.path, 'scripts', 'ralph');
+  const prdPath = path.join(ralphPath, 'prd.json');
+
+  if (!fs.existsSync(prdPath)) {
+    return res.status(400).json({ error: 'No prd.json exists to archive' });
+  }
+
+  let prd: { project?: string } | null = null;
+  try {
+    prd = JSON.parse(fs.readFileSync(prdPath, 'utf-8'));
+  } catch {
+    return res.status(400).json({ error: 'Failed to parse prd.json' });
+  }
+
+  const featureName = (prd?.project || 'unknown')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const archiveBase = path.join(ralphPath, 'archive');
+  fs.mkdirSync(archiveBase, { recursive: true });
+
+  let folderName = `${today}-${featureName}`;
+  if (fs.existsSync(path.join(archiveBase, folderName))) {
+    let suffix = 2;
+    while (fs.existsSync(path.join(archiveBase, `${folderName}-${suffix}`))) {
+      suffix++;
+    }
+    folderName = `${folderName}-${suffix}`;
+  }
+
+  const archiveDir = path.join(archiveBase, folderName);
+  fs.mkdirSync(archiveDir, { recursive: true });
+
+  fs.renameSync(prdPath, path.join(archiveDir, 'prd.json'));
+
+  const progressPath = path.join(ralphPath, 'progress.txt');
+  if (fs.existsSync(progressPath)) {
+    fs.renameSync(progressPath, path.join(archiveDir, 'progress.txt'));
+  }
+
+  const lastBranchPath = path.join(ralphPath, '.last-branch');
+  if (fs.existsSync(lastBranchPath)) {
+    fs.renameSync(lastBranchPath, path.join(archiveDir, '.last-branch'));
+  }
+
+  const feedbackPath = path.join(ralphPath, 'review-feedback.md');
+  if (fs.existsSync(feedbackPath)) {
+    fs.unlinkSync(feedbackPath);
+  }
+
+  res.json({ success: true, folder: folderName });
+});
+
 projectsRouter.get('/:id/archives', (req, res) => {
   const { id } = req.params;
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
