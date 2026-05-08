@@ -12,6 +12,7 @@ interface RunInfo {
   exitCode: number | null;
   finished: boolean;
   error: string | null;
+  reviewFeedbackPath: string | null;
 }
 
 const MAX_OUTPUT_LINES = 500;
@@ -98,6 +99,21 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
   const runEnv = buildRunEnv(projectRow.provider, projectRow.model_variant ?? undefined, providerConfig);
   const cliArgs = provider.getCliArgs(providerConfig, projectRow.model_variant ?? undefined);
 
+  // Check for review-feedback.md and inject as env var if present
+  const reviewFeedbackPath = path.join(projectPath, 'scripts', 'ralph', 'review-feedback.md');
+  let hasReviewFeedback = false;
+  if (fs.existsSync(reviewFeedbackPath)) {
+    try {
+      const feedbackContent = fs.readFileSync(reviewFeedbackPath, 'utf-8');
+      if (feedbackContent.trim()) {
+        runEnv.REVIEW_FEEDBACK = feedbackContent;
+        hasReviewFeedback = true;
+      }
+    } catch {
+      // If we can't read it, proceed without it
+    }
+  }
+
   const child = spawn('bash', [scriptPath, ...cliArgs], {
     cwd: projectPath,
     detached: true,
@@ -113,6 +129,7 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
     exitCode: null,
     finished: false,
     error: null,
+    reviewFeedbackPath: hasReviewFeedback ? reviewFeedbackPath : null,
   };
 
   const appendOutput = (data: Buffer) => {
@@ -134,6 +151,16 @@ export function startRun(projectId: number, projectPath: string): { ok: boolean;
   child.on('close', (code) => {
     info.exitCode = code;
     info.finished = true;
+
+    // Clean up review-feedback.md after a successful run
+    if (code === 0 && info.reviewFeedbackPath) {
+      try {
+        fs.unlinkSync(info.reviewFeedbackPath);
+      } catch {
+        // File may already be deleted
+      }
+    }
+
     scheduleCleanup(projectId, info);
   });
 
