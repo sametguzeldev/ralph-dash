@@ -170,3 +170,9 @@ export function getOutput(projectId: number, since = 0): { lines: string[]; tota
   const bufferOffset = Math.max(0, since - bufferStart);
   return { lines: info.output.slice(bufferOffset), total: info.totalLines };
 }
+
+export function getFullOutputText(projectId: number): string | null {
+  const info = reviewRuns.get(projectId);
+  if (!info) return null;
+  return info.output.join('\n');
+}
