@@ -11,6 +11,8 @@ import {
   stopReview,
   getReviewStatus,
   getReviewOutput,
+  saveReviewFeedback,
+  archiveProject,
   type WorkflowStatus,
   type ReviewStatus,
 } from '../lib/api';
@@ -183,6 +185,10 @@ export function WorkflowWizard({ projectId, isRunning, hasProvider, hasReviewPro
                 projectId={projectId}
                 hasReviewProvider={hasReviewProvider}
                 workflow={workflow}
+                onGoToRun={() => {
+                  setActiveStep(3);
+                  setUserOverride(true);
+                }}
               />
             )}
           </div>
@@ -716,17 +722,22 @@ function ReviewStep({
   projectId,
   hasReviewProvider,
   workflow,
+  onGoToRun,
 }: {
   projectId: number;
   hasReviewProvider: boolean;
   workflow: WorkflowStatus | undefined;
+  onGoToRun: () => void;
 }) {
+  const queryClient = useQueryClient();
   const hasPrdJson = workflow?.hasPrdJson ?? false;
   const prdJsonValid = workflow?.prdJsonValid ?? false;
   const [baseBranch, setBaseBranch] = useState('main');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const { data: reviewStatus } = useQuery({
     queryKey: ['review-status', projectId],
@@ -735,6 +746,7 @@ function ReviewStep({
   });
 
   const isReviewRunning = reviewStatus?.running ?? false;
+  const reviewDone = hasStarted && !isReviewRunning && (reviewStatus?.status === 'completed' || reviewStatus?.status === 'failed');
 
   useEffect(() => {
     if (isReviewRunning) setHasStarted(true);
@@ -743,6 +755,7 @@ function ReviewStep({
   const handleStart = async () => {
     setPending(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       await startReview(projectId, baseBranch);
       setHasStarted(true);
@@ -762,6 +775,36 @@ function ReviewStep({
       setError(err instanceof Error ? err.message : 'Failed to stop review');
     } finally {
       setPending(false);
+    }
+  };
+
+  const handleDone = async () => {
+    setActionPending(true);
+    setError(null);
+    try {
+      await archiveProject(projectId);
+      queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
+      setHasStarted(false);
+      setSuccessMessage('Feature archived successfully! Workflow has been reset.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive project');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleFixAndRerun = async () => {
+    setActionPending(true);
+    setError(null);
+    try {
+      await saveReviewFeedback(projectId);
+      setHasStarted(false);
+      onGoToRun();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save review feedback');
+    } finally {
+      setActionPending(false);
     }
   };
 
@@ -792,6 +835,10 @@ function ReviewStep({
         <p className="text-xs text-amber-400">
           prd.json has validation errors. Go back to step 3 to fix them.
         </p>
+      )}
+
+      {successMessage && (
+        <p className="text-xs text-green-400">{successMessage}</p>
       )}
 
       <div className="flex flex-col md:flex-row gap-2">
@@ -836,6 +883,25 @@ function ReviewStep({
 
       {(isReviewRunning || hasStarted) && (
         <ReviewOutputLog projectId={projectId} running={isReviewRunning} reviewStatus={reviewStatus ?? null} />
+      )}
+
+      {reviewDone && (
+        <div className="flex items-center gap-3 pt-2 border-t border-gray-700">
+          <button
+            onClick={handleDone}
+            disabled={actionPending}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+          >
+            {actionPending ? 'Archiving...' : 'Done'}
+          </button>
+          <button
+            onClick={handleFixAndRerun}
+            disabled={actionPending}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+          >
+            {actionPending ? 'Saving feedback...' : 'Fix & Re-run'}
+          </button>
+        </div>
       )}
     </div>
   );

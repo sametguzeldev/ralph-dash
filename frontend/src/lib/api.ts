@@ -399,3 +399,11 @@ export function getReviewStatus(id: number) {
 export function getReviewOutput(id: number, since = 0) {
   return request<{ lines: string[]; total: number }>(`/projects/${id}/review/output?since=${since}`);
 }
+
+export function saveReviewFeedback(id: number) {
+  return request<{ success: boolean }>(`/projects/${id}/review/save-feedback`, { method: 'POST' });
+}
+
+export function archiveProject(id: number) {
+  return request<{ success: boolean }>(`/projects/${id}/archive`, { method: 'POST' });
+}
