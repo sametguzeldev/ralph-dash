@@ -372,3 +372,30 @@ export function validatePrdJson(id: number, content: string) {
     body: JSON.stringify({ content }),
   });
 }
+
+// Review
+export interface ReviewStatus {
+  running: boolean;
+  status: 'running' | 'completed' | 'failed' | null;
+  startedAt?: string;
+  exitCode: number | null;
+}
+
+export function startReview(id: number, baseBranch: string) {
+  return request<{ success: boolean } & ReviewStatus>(`/projects/${id}/review/start`, {
+    method: 'POST',
+    body: JSON.stringify({ baseBranch }),
+  });
+}
+
+export function stopReview(id: number) {
+  return request<{ success: boolean }>(`/projects/${id}/review/stop`, { method: 'POST' });
+}
+
+export function getReviewStatus(id: number) {
+  return request<ReviewStatus>(`/projects/${id}/review/status`);
+}
+
+export function getReviewOutput(id: number, since = 0) {
+  return request<{ lines: string[]; total: number }>(`/projects/${id}/review/output?since=${since}`);
+}
