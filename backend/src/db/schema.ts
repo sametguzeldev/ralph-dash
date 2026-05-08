@@ -34,6 +34,12 @@ export function initializeDatabase() {
   if (!colNames.has('model_variant')) {
     db.exec(`ALTER TABLE projects ADD COLUMN model_variant TEXT`);
   }
+  if (!colNames.has('review_provider')) {
+    db.exec(`ALTER TABLE projects ADD COLUMN review_provider TEXT`);
+  }
+  if (!colNames.has('review_model_variant')) {
+    db.exec(`ALTER TABLE projects ADD COLUMN review_model_variant TEXT`);
+  }
 
   migrateSettingsToProviders();
   seedDefaultSelections();
