@@ -11,6 +11,7 @@ import {
   stopReview,
   getReviewStatus,
   getReviewOutput,
+  getSavedReview,
   saveReviewFeedback,
   archiveProject,
   type WorkflowStatus,
@@ -967,6 +968,7 @@ function ReviewOutputLog({
   reviewStatus: ReviewStatus | null;
 }) {
   const [lines, setLines] = useState<string[]>([]);
+  const [savedContent, setSavedContent] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState('');
   const sinceRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -975,6 +977,7 @@ function ReviewOutputLog({
   useEffect(() => {
     if (running && !prevRunningRef.current) {
       setLines([]);
+      setSavedContent(null);
       sinceRef.current = 0;
     }
     prevRunningRef.current = running;
@@ -996,6 +999,15 @@ function ReviewOutputLog({
 
   const status = reviewStatus?.status;
   const isDone = status === 'completed' || status === 'failed';
+  const noActiveRun = !running && !isDone;
+
+  // Load saved review from disk when no active in-memory run
+  useEffect(() => {
+    if (!noActiveRun) return;
+    getSavedReview(projectId)
+      .then(({ content }) => { if (content) setSavedContent(content); })
+      .catch(() => {});
+  }, [noActiveRun, projectId]);
 
   useEffect(() => {
     let active = true;
@@ -1036,10 +1048,11 @@ function ReviewOutputLog({
     }
   }, [lines]);
 
-  if (lines.length === 0 && !running && !isDone) return null;
+  if (lines.length === 0 && !running && !isDone && !savedContent) return null;
 
   const isCompleted = status === 'completed';
   const isFailed = status === 'failed';
+  const showingSaved = lines.length === 0 && !running && !isDone && !!savedContent;
 
   return (
     <div className="bg-gray-950 rounded-lg overflow-hidden">
@@ -1054,6 +1067,7 @@ function ReviewOutputLog({
           )}
           {isCompleted && <span className="text-green-400">Completed</span>}
           {isFailed && <span className="text-red-400">Failed{reviewStatus?.exitCode != null ? ` (exit ${reviewStatus.exitCode})` : ''}</span>}
+          {showingSaved && <span className="text-gray-500">Saved</span>}
         </div>
         {elapsed && (
           <span className={isDone ? 'text-gray-600' : 'text-gray-400'}>{elapsed}</span>
@@ -1063,19 +1077,25 @@ function ReviewOutputLog({
         ref={scrollRef}
         className="h-36 md:h-48 overflow-auto p-3 font-mono text-xs text-gray-400"
       >
-        {lines.map((line, i) => (
-          <div key={i} className={`whitespace-pre-wrap ${line.startsWith('Error') ? 'text-red-400' : ''}`}>
-            {line}
-          </div>
-        ))}
-        {lines.length === 0 && running && (
-          <span className="text-gray-600 flex items-center gap-2">
-            <span className="inline-block w-3 h-3 border-2 border-gray-600 border-t-ralph-400 rounded-full animate-spin" />
-            Waiting for output...
-          </span>
-        )}
-        {lines.length === 0 && !running && (
-          <span className="text-gray-600">No output captured.</span>
+        {showingSaved ? (
+          <div className="whitespace-pre-wrap">{savedContent}</div>
+        ) : (
+          <>
+            {lines.map((line, i) => (
+              <div key={i} className={`whitespace-pre-wrap ${line.startsWith('Error') ? 'text-red-400' : ''}`}>
+                {line}
+              </div>
+            ))}
+            {lines.length === 0 && running && (
+              <span className="text-gray-600 flex items-center gap-2">
+                <span className="inline-block w-3 h-3 border-2 border-gray-600 border-t-ralph-400 rounded-full animate-spin" />
+                Waiting for output...
+              </span>
+            )}
+            {lines.length === 0 && !running && (
+              <span className="text-gray-600">No output captured.</span>
+            )}
+          </>
         )}
       </div>
     </div>

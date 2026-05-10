@@ -54,6 +54,23 @@ reviewRouter.get('/:id/review/output', (req, res) => {
   res.json(getOutput(projectId, since));
 });
 
+reviewRouter.get('/:id/review/saved', (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const filePath = path.join(project.path, 'scripts', 'ralph', 'review-output.md');
+  if (!fs.existsSync(filePath)) {
+    return res.json({ content: null });
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  res.json({ content });
+});
+
 reviewRouter.post('/:id/review/save-feedback', (req, res) => {
   const projectId = parseInt(req.params.id, 10);
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;

@@ -404,6 +404,10 @@ export function saveReviewFeedback(id: number) {
   return request<{ success: boolean }>(`/projects/${id}/review/save-feedback`, { method: 'POST' });
 }
 
+export function getSavedReview(id: number) {
+  return request<{ content: string | null }>(`/projects/${id}/review/saved`);
+}
+
 export function archiveProject(id: number) {
   return request<{ success: boolean }>(`/projects/${id}/archive`, { method: 'POST' });
 }

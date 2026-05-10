@@ -430,6 +430,11 @@ projectsRouter.post('/:id/archive', (req, res) => {
     fs.unlinkSync(feedbackPath);
   }
 
+  const reviewOutputPath = path.join(ralphPath, 'review-output.md');
+  if (fs.existsSync(reviewOutputPath)) {
+    fs.unlinkSync(reviewOutputPath);
+  }
+
   res.json({ success: true, folder: folderName });
 });
 
