@@ -76,6 +76,14 @@ export function WorkflowWizard({ projectId, isRunning, hasProvider, hasReviewPro
   const [activeStep, setActiveStep] = useState(0);
   const [featureDesc, setFeatureDesc] = useState('');
   const [editorOpen, setEditorOpen] = useState<{ path: string; type: 'markdown' | 'json' } | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleArchiveSuccess = useCallback((msg: string) => {
+    setSuccessMessage(msg);
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => setSuccessMessage(null), 4000);
+  }, []);
 
   // Workflow status (polls faster while a skill is running)
   const { data: workflow } = useQuery({
@@ -140,6 +148,11 @@ export function WorkflowWizard({ projectId, isRunning, hasProvider, hasReviewPro
             onStepClick={handleStepClick}
           />
 
+          {/* Success message (persists across step transitions) */}
+          {successMessage && (
+            <p className="text-xs text-green-400">{successMessage}</p>
+          )}
+
           {/* Step content */}
           <div className="bg-gray-800/50 rounded-lg p-4">
             {activeStep === 0 && (
@@ -190,6 +203,7 @@ export function WorkflowWizard({ projectId, isRunning, hasProvider, hasReviewPro
                   setActiveStep(3);
                   setUserOverride(true);
                 }}
+                onArchiveSuccess={handleArchiveSuccess}
               />
             )}
           </div>
@@ -724,11 +738,13 @@ function ReviewStep({
   hasReviewProvider,
   workflow,
   onGoToRun,
+  onArchiveSuccess,
 }: {
   projectId: number;
   hasReviewProvider: boolean;
   workflow: WorkflowStatus | undefined;
   onGoToRun: () => void;
+  onArchiveSuccess: (msg: string) => void;
 }) {
   const queryClient = useQueryClient();
   const hasPrdJson = workflow?.hasPrdJson ?? false;
@@ -738,7 +754,6 @@ function ReviewStep({
   const [error, setError] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [actionPending, setActionPending] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
   const { data: reviewStatus } = useQuery({
@@ -766,7 +781,6 @@ function ReviewStep({
   const handleStart = async () => {
     setPending(true);
     setError(null);
-    setSuccessMessage(null);
     try {
       await startReview(projectId, baseBranch);
       setHasStarted(true);
@@ -797,7 +811,7 @@ function ReviewStep({
       queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
       setHasStarted(false);
-      setSuccessMessage('Feature archived successfully! Workflow has been reset.');
+      onArchiveSuccess('Feature archived successfully! Workflow has been reset.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to archive project');
     } finally {
@@ -828,7 +842,7 @@ function ReviewStep({
       queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
       setHasStarted(false);
-      setSuccessMessage('Feature archived successfully! Workflow has been reset.');
+      onArchiveSuccess('Feature archived successfully! Workflow has been reset.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to archive project');
     } finally {
@@ -863,10 +877,6 @@ function ReviewStep({
         <p className="text-xs text-amber-400">
           prd.json has validation errors. Go back to step 3 to fix them.
         </p>
-      )}
-
-      {successMessage && (
-        <p className="text-xs text-green-400">{successMessage}</p>
       )}
 
       <div className="flex flex-col md:flex-row gap-2">
