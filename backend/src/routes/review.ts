@@ -3,33 +3,32 @@ import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
 import { startReview, stopReview, getStatus, getOutput, getFullOutputText } from '../services/reviewRunner.js';
+import type { StartReviewFailReason } from '../services/reviewRunner.js';
 import type { ProjectRow } from '../db/types.js';
 
 export const reviewRouter = Router();
 
+const reasonToStatus: Record<StartReviewFailReason, number> = {
+  'not-found': 404,
+  'no-provider': 400,
+  'unknown-provider': 400,
+  'already-running': 409,
+};
+
 reviewRouter.post('/:id/review/start', (req, res) => {
   const projectId = parseInt(req.params.id, 10);
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
-
-  if (!project) {
-    return res.status(404).json({ error: 'Project not found' });
-  }
-
-  if (!project.review_provider) {
-    return res.status(400).json({ error: 'No review provider configured for this project' });
-  }
 
   const { baseBranch } = req.body as { baseBranch?: string };
   if (!baseBranch || typeof baseBranch !== 'string') {
     return res.status(400).json({ error: 'baseBranch is required' });
   }
 
-  const result = startReview(project.id, baseBranch);
+  const result = startReview(projectId, baseBranch);
   if (!result.ok) {
-    return res.status(409).json({ error: result.error });
+    return res.status(reasonToStatus[result.reason]).json({ error: result.error });
   }
 
-  res.json({ success: true, ...getStatus(project.id) });
+  res.json({ success: true, ...getStatus(projectId) });
 });
 
 reviewRouter.post('/:id/review/stop', (req, res) => {

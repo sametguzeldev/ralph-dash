@@ -69,34 +69,40 @@ function parseStreamJsonLine(raw: string): string | null {
   return null;
 }
 
+export type StartReviewFailReason = 'not-found' | 'no-provider' | 'already-running' | 'unknown-provider';
+
+export type StartReviewResult =
+  | { ok: true }
+  | { ok: false; reason: StartReviewFailReason; error: string };
+
 export function startReview(
   projectId: number,
   baseBranch: string,
-): { ok: boolean; error?: string } {
+): StartReviewResult {
   if (reviewRuns.has(projectId)) {
     const existing = reviewRuns.get(projectId)!;
-    if (existing.status === 'running') return { ok: false, error: 'Review already in progress' };
+    if (existing.status === 'running') return { ok: false, reason: 'already-running', error: 'Review already in progress' };
     reviewRuns.delete(projectId);
   }
 
   const projectRow = db.prepare('SELECT path, review_provider, review_model_variant FROM projects WHERE id = ?').get(projectId) as
     { path: string; review_provider: string | null; review_model_variant: string | null } | undefined;
 
-  if (!projectRow) return { ok: false, error: 'Project not found' };
-  if (!projectRow.review_provider) return { ok: false, error: 'No review provider configured for this project' };
+  if (!projectRow) return { ok: false, reason: 'not-found', error: 'Project not found' };
+  if (!projectRow.review_provider) return { ok: false, reason: 'no-provider', error: 'No review provider configured for this project' };
 
   let provider;
   try {
     provider = getProvider(projectRow.review_provider);
   } catch {
-    return { ok: false, error: `Unknown provider: ${projectRow.review_provider}` };
+    return { ok: false, reason: 'unknown-provider', error: `Unknown provider: ${projectRow.review_provider}` };
   }
 
   const providerRow = db.prepare('SELECT config, is_configured FROM providers WHERE name = ?').get(projectRow.review_provider) as
     { config: string | null; is_configured: number } | undefined;
 
   if (!providerRow || !providerRow.is_configured) {
-    return { ok: false, error: `Provider '${projectRow.review_provider}' is not configured. Please configure authentication on the Models page first.` };
+    return { ok: false, reason: 'no-provider', error: `Provider '${projectRow.review_provider}' is not configured. Please configure authentication on the Models page first.` };
   }
 
   const info: ReviewRun = {
@@ -229,7 +235,7 @@ export function startReview(
     });
   } else {
     reviewRuns.delete(projectId);
-    return { ok: false, error: `Review is not supported for provider '${provider.name}'` };
+    return { ok: false, reason: 'unknown-provider', error: `Review is not supported for provider '${provider.name}'` };
   }
 
   return { ok: true };
