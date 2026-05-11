@@ -429,3 +429,18 @@ export function generateFixPrd(id: number, findings: Finding[], branchName?: str
 export function archiveProject(id: number) {
   return request<{ success: boolean }>(`/projects/${id}/archive`, { method: 'POST' });
 }
+
+// Review Chat
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+export function getReviewChatHistory(id: number) {
+  return request<{ messages: ChatMessage[] }>(`/projects/${id}/review/chat/history`);
+}
+
+export function clearReviewChatHistory(id: number) {
+  return request<{ success: boolean }>(`/projects/${id}/review/chat/history`, { method: 'DELETE' });
+}
