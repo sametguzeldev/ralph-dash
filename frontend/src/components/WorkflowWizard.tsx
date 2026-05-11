@@ -754,6 +754,15 @@ function ReviewStep({
     if (isReviewRunning) setHasStarted(true);
   }, [isReviewRunning]);
 
+  useEffect(() => {
+    if (reviewStatus && !hasStarted) {
+      const s = reviewStatus.status;
+      if (s === 'completed' || s === 'failed') {
+        setHasStarted(true);
+      }
+    }
+  }, [reviewStatus, hasStarted]);
+
   const handleStart = async () => {
     setPending(true);
     setError(null);
