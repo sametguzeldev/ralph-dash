@@ -14,6 +14,7 @@ import {
   getSavedReview,
   saveReviewFeedback,
   analyzeFindings,
+  generateFixPrd,
   archiveProject,
   type WorkflowStatus,
   type ReviewStatus,
@@ -927,7 +928,7 @@ function ReviewStep({
 
       {reviewDone && (
         <>
-          <TriagePanel projectId={projectId} />
+          <TriagePanel projectId={projectId} onGoToRun={onGoToRun} />
           <div className="flex items-center gap-3 pt-2 border-t border-gray-700">
             <button
               onClick={handleDone}
@@ -1128,13 +1129,16 @@ function ReviewOutputLog({
 
 // --- Triage Panel ---
 
-function TriagePanel({ projectId }: { projectId: number }) {
+function TriagePanel({ projectId, onGoToRun }: { projectId: number; onGoToRun: () => void }) {
+  const queryClient = useQueryClient();
   const [findings, setFindings] = useState<Finding[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -1254,12 +1258,53 @@ function TriagePanel({ projectId }: { projectId: number }) {
         <p className="text-xs text-gray-500">No findings extracted from the review.</p>
       )}
 
-      <button
-        disabled={checkedCount === 0}
-        className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
-      >
-        Generate Fix PRD ({checkedCount})
-      </button>
+      {showConfirm ? (
+        <div className="bg-gray-800 rounded-lg p-3 space-y-2">
+          <p className="text-sm text-gray-200">
+            Archive the current run and generate a fix PRD from {checkedCount} selected finding{checkedCount !== 1 ? 's' : ''}?
+          </p>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setGenerating(true);
+                setError(null);
+                try {
+                  const selected = findings.filter(f => checked[f.id]);
+                  await generateFixPrd(projectId, selected);
+                  queryClient.invalidateQueries({ queryKey: ['workflow-status', projectId] });
+                  queryClient.invalidateQueries({ queryKey: ['project-status', projectId] });
+                  onGoToRun();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Failed to generate fix PRD');
+                } finally {
+                  setGenerating(false);
+                }
+              }}
+              disabled={generating}
+              className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium flex items-center gap-2"
+            >
+              {generating && <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />}
+              {generating ? 'Generating...' : 'Confirm'}
+            </button>
+            <button
+              onClick={() => { setShowConfirm(false); setError(null); }}
+              disabled={generating}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium text-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowConfirm(true)}
+          disabled={checkedCount === 0}
+          className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+        >
+          Generate Fix PRD ({checkedCount})
+        </button>
+      )}
     </div>
   );
 }
