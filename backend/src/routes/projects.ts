@@ -435,6 +435,11 @@ projectsRouter.post('/:id/archive', (req, res) => {
     fs.unlinkSync(reviewOutputPath);
   }
 
+  const chatHistoryPath = path.join(ralphPath, 'review-chat.json');
+  if (fs.existsSync(chatHistoryPath)) {
+    fs.unlinkSync(chatHistoryPath);
+  }
+
   res.json({ success: true, folder: folderName });
 });
 
