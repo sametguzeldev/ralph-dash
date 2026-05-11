@@ -13,9 +13,11 @@ import {
   getReviewOutput,
   getSavedReview,
   saveReviewFeedback,
+  analyzeFindings,
   archiveProject,
   type WorkflowStatus,
   type ReviewStatus,
+  type Finding,
 } from '../lib/api';
 import { WizardStepIndicator } from './WizardStepIndicator';
 import { FileEditor } from './FileEditor';
@@ -924,22 +926,25 @@ function ReviewStep({
       )}
 
       {reviewDone && (
-        <div className="flex items-center gap-3 pt-2 border-t border-gray-700">
-          <button
-            onClick={handleDone}
-            disabled={actionPending}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium"
-          >
-            {actionPending ? 'Archiving...' : 'Done'}
-          </button>
-          <button
-            onClick={handleFixAndRerun}
-            disabled={actionPending}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg text-sm font-medium"
-          >
-            {actionPending ? 'Saving feedback...' : 'Fix & Re-run'}
-          </button>
-        </div>
+        <>
+          <TriagePanel projectId={projectId} />
+          <div className="flex items-center gap-3 pt-2 border-t border-gray-700">
+            <button
+              onClick={handleDone}
+              disabled={actionPending}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+            >
+              {actionPending ? 'Archiving...' : 'Done'}
+            </button>
+            <button
+              onClick={handleFixAndRerun}
+              disabled={actionPending}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+            >
+              {actionPending ? 'Saving feedback...' : 'Fix & Re-run'}
+            </button>
+          </div>
+        </>
       )}
 
       {hasPrdJson && prdJsonValid && !isReviewRunning && (
@@ -1117,6 +1122,144 @@ function ReviewOutputLog({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// --- Triage Panel ---
+
+function TriagePanel({ projectId }: { projectId: number }) {
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const handleAnalyze = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { findings: result } = await analyzeFindings(projectId);
+      setFindings(result);
+      const initial: Record<string, boolean> = {};
+      for (const f of result) {
+        initial[f.id] = f.severity === 'required';
+      }
+      setChecked(initial);
+      setLoaded(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Analysis failed';
+      if (msg.includes('review-output') || msg.includes('No review output')) {
+        setError('No review output found. Run a review first.');
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleCheck = (id: string) => {
+    setChecked(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const checkedCount = Object.values(checked).filter(Boolean).length;
+  const required = findings.filter(f => f.severity === 'required');
+  const niceToHave = findings.filter(f => f.severity === 'nice-to-have');
+
+  if (!loaded) {
+    return (
+      <div className="space-y-2">
+        {error && <p className="text-xs text-red-400">{error}</p>}
+        <button
+          onClick={handleAnalyze}
+          disabled={loading}
+          className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium flex items-center gap-2"
+        >
+          {loading && <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />}
+          {loading ? 'Analyzing...' : 'Analyze Findings'}
+        </button>
+      </div>
+    );
+  }
+
+  const renderFinding = (f: Finding) => (
+    <div key={f.id} className="bg-gray-800 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={checked[f.id] ?? false}
+          onChange={() => toggleCheck(f.id)}
+          className="mt-1 accent-ralph-500"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => toggleExpand(f.id)}
+              className="text-sm text-gray-200 text-left hover:text-white"
+            >
+              {f.title}
+            </button>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+              f.severity === 'required'
+                ? 'bg-red-900/50 text-red-400'
+                : 'bg-yellow-900/50 text-yellow-400'
+            }`}>
+              {f.severity === 'required' ? 'Required' : 'Nice to have'}
+            </span>
+          </div>
+          {expanded[f.id] && (
+            <p className="text-xs text-gray-400 mt-1.5 whitespace-pre-wrap">{f.description}</p>
+          )}
+        </div>
+        <button
+          onClick={() => toggleExpand(f.id)}
+          className="text-gray-500 hover:text-gray-300 text-xs shrink-0"
+        >
+          {expanded[f.id] ? '▲' : '▼'}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h5 className="text-sm font-medium text-gray-200">
+          Findings ({findings.length})
+        </h5>
+        <span className="text-xs text-gray-500">{checkedCount} selected</span>
+      </div>
+
+      {required.length > 0 && (
+        <div className="space-y-1.5">
+          <h6 className="text-xs text-red-400 font-medium">Required ({required.length})</h6>
+          {required.map(renderFinding)}
+        </div>
+      )}
+
+      {niceToHave.length > 0 && (
+        <div className="space-y-1.5">
+          <h6 className="text-xs text-yellow-400 font-medium">Nice to have ({niceToHave.length})</h6>
+          {niceToHave.map(renderFinding)}
+        </div>
+      )}
+
+      {findings.length === 0 && (
+        <p className="text-xs text-gray-500">No findings extracted from the review.</p>
+      )}
+
+      <button
+        disabled={checkedCount === 0}
+        className="px-4 py-2 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+      >
+        Generate Fix PRD ({checkedCount})
+      </button>
     </div>
   );
 }
