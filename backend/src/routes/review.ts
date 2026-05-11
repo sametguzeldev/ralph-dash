@@ -107,6 +107,106 @@ reviewRouter.post('/:id/review/save-feedback', (req, res) => {
   res.json({ success: true });
 });
 
+reviewRouter.post('/:id/review/generate-fix-prd', (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  const { findings, branchName } = req.body as { findings: Finding[]; branchName?: string };
+
+  if (!findings || !Array.isArray(findings) || findings.length === 0) {
+    return res.status(400).json({ error: 'At least one finding is required' });
+  }
+
+  const ralphPath = path.join(project.path, 'scripts', 'ralph');
+  const prdPath = path.join(ralphPath, 'prd.json');
+
+  let existingPrd: { project?: string; qualityChecks?: Record<string, string> } | null = null;
+  if (fs.existsSync(prdPath)) {
+    try {
+      existingPrd = JSON.parse(fs.readFileSync(prdPath, 'utf-8'));
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  const qualityChecks = existingPrd?.qualityChecks || {};
+
+  // Archive current run
+  if (fs.existsSync(prdPath)) {
+    const featureName = (existingPrd?.project || 'unknown')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const archiveBase = path.join(ralphPath, 'archive');
+    fs.mkdirSync(archiveBase, { recursive: true });
+
+    let folderName = `${today}-${featureName}`;
+    if (fs.existsSync(path.join(archiveBase, folderName))) {
+      let suffix = 2;
+      while (fs.existsSync(path.join(archiveBase, `${folderName}-${suffix}`))) {
+        suffix++;
+      }
+      folderName = `${folderName}-${suffix}`;
+    }
+
+    const archiveDir = path.join(archiveBase, folderName);
+    fs.mkdirSync(archiveDir, { recursive: true });
+
+    fs.renameSync(prdPath, path.join(archiveDir, 'prd.json'));
+
+    const progressPath = path.join(ralphPath, 'progress.txt');
+    if (fs.existsSync(progressPath)) {
+      fs.renameSync(progressPath, path.join(archiveDir, 'progress.txt'));
+    }
+
+    const lastBranchPath = path.join(ralphPath, '.last-branch');
+    if (fs.existsSync(lastBranchPath)) {
+      fs.renameSync(lastBranchPath, path.join(archiveDir, '.last-branch'));
+    }
+
+    const feedbackPath = path.join(ralphPath, 'review-feedback.md');
+    if (fs.existsSync(feedbackPath)) {
+      fs.unlinkSync(feedbackPath);
+    }
+
+    const reviewOutputPath = path.join(ralphPath, 'review-output.md');
+    if (fs.existsSync(reviewOutputPath)) {
+      fs.unlinkSync(reviewOutputPath);
+    }
+  }
+
+  const prdJson = {
+    project: existingPrd?.project || project.name,
+    branchName: branchName || 'ralph/fix-review-findings',
+    description: `Fix ${findings.length} review finding(s) from code review triage.`,
+    qualityChecks,
+    userStories: findings.map((f, i) => ({
+      id: `US-${String(i + 1).padStart(3, '0')}`,
+      title: f.title,
+      description: f.description,
+      acceptanceCriteria: [
+        f.description,
+        'Typecheck passes',
+      ],
+      priority: f.severity === 'required' ? 1 : 2,
+      passes: false,
+      inProgress: false,
+      notes: `From review finding ${f.id} (${f.severity})`,
+    })),
+  };
+
+  fs.mkdirSync(ralphPath, { recursive: true });
+  fs.writeFileSync(prdPath, JSON.stringify(prdJson, null, 2), 'utf-8');
+
+  res.json({ prdJson });
+});
+
 reviewRouter.post('/:id/review/analyze', async (req, res) => {
   const projectId = parseInt(req.params.id, 10);
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
