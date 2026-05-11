@@ -15,9 +15,12 @@ import {
   saveReviewFeedback,
   analyzeFindings,
   archiveProject,
+  getReviewChatHistory,
+  clearReviewChatHistory,
   type WorkflowStatus,
   type ReviewStatus,
   type Finding,
+  type ChatMessage,
 } from '../lib/api';
 import { WizardStepIndicator } from './WizardStepIndicator';
 import { FileEditor } from './FileEditor';
@@ -757,6 +760,7 @@ function ReviewStep({
   const [hasStarted, setHasStarted] = useState(false);
   const [actionPending, setActionPending] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const { data: reviewStatus } = useQuery({
     queryKey: ['review-status', projectId],
@@ -854,15 +858,8 @@ function ReviewStep({
 
   const canStart = hasPrdJson && prdJsonValid && hasReviewProvider && !isReviewRunning && baseBranch.trim().length > 0;
 
-  return (
+  const reviewContent = (
     <div className="space-y-3">
-      <div>
-        <h4 className="text-sm font-medium text-gray-200 mb-1">Code Review</h4>
-        <p className="text-xs text-gray-500">
-          Run an AI-powered review of changes on the current branch against the base branch.
-        </p>
-      </div>
-
       {!hasReviewProvider && (
         <p className="text-xs text-amber-400">
           No review provider configured. Select a review provider at the top of the page to enable reviews.
@@ -978,6 +975,241 @@ function ReviewStep({
           )}
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-medium text-gray-200 mb-1">Code Review</h4>
+          <p className="text-xs text-gray-500">
+            Run an AI-powered review of changes on the current branch against the base branch.
+          </p>
+        </div>
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+            chatOpen
+              ? 'bg-ralph-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          Chat
+        </button>
+      </div>
+
+      {chatOpen ? (
+        <div className="flex gap-3 min-h-0">
+          <div className="flex-1 min-w-0">
+            {reviewContent}
+          </div>
+          <div className="w-80 shrink-0">
+            <ReviewChatPanel projectId={projectId} onClose={() => setChatOpen(false)} />
+          </div>
+        </div>
+      ) : (
+        reviewContent
+      )}
+    </div>
+  );
+}
+
+// --- Review Chat Panel ---
+
+function ReviewChatPanel({ projectId, onClose }: { projectId: number; onClose: () => void }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    getReviewChatHistory(projectId)
+      .then(({ messages: history }) => setMessages(history))
+      .catch(() => {});
+  }, [projectId]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || streaming) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: text, timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setStreaming(true);
+    setError(null);
+
+    const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, assistantMsg]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/review/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || res.statusText);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6);
+          if (payload === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(payload) as { text?: string; error?: string };
+            if (parsed.error) {
+              setError(parsed.error);
+            } else if (parsed.text) {
+              setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.role === 'assistant') {
+                  updated[updated.length - 1] = { ...last, content: last.content + parsed.text };
+                }
+                return updated;
+              });
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setError(err instanceof Error ? err.message : 'Chat request failed');
+        setMessages(prev => {
+          if (prev.length > 0 && prev[prev.length - 1]?.role === 'assistant' && prev[prev.length - 1]?.content === '') {
+            return prev.slice(0, -1);
+          }
+          return prev;
+        });
+      }
+    } finally {
+      setStreaming(false);
+      abortRef.current = null;
+    }
+  };
+
+  const handleClear = async () => {
+    try {
+      await clearReviewChatHistory(projectId);
+      setMessages([]);
+      setError(null);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="bg-gray-950 rounded-lg flex flex-col h-96 overflow-hidden border border-gray-800">
+      <div className="px-3 py-2 border-b border-gray-800 flex items-center justify-between shrink-0">
+        <span className="text-xs font-medium text-gray-300">Review Chat</span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleClear}
+            disabled={streaming || messages.length === 0}
+            title="Clear chat"
+            className="text-gray-500 hover:text-gray-300 disabled:opacity-40 transition-colors p-0.5"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          </button>
+          <button
+            onClick={onClose}
+            title="Close chat"
+            className="text-gray-500 hover:text-gray-300 transition-colors p-0.5"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
+        {messages.length === 0 && !streaming && (
+          <p className="text-xs text-gray-600 text-center mt-8">Ask questions about the review findings.</p>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs whitespace-pre-wrap ${
+              msg.role === 'user'
+                ? 'bg-ralph-600/30 text-gray-200'
+                : 'bg-gray-800 text-gray-300'
+            }`}>
+              {msg.content}
+              {msg.role === 'assistant' && msg.content === '' && streaming && i === messages.length - 1 && (
+                <span className="inline-block w-2 h-3 bg-gray-500 animate-pulse ml-0.5" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="px-3 py-1.5 text-xs text-red-400 border-t border-gray-800 shrink-0">
+          {error}
+        </div>
+      )}
+
+      <div className="p-2 border-t border-gray-800 shrink-0">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={streaming}
+            placeholder="Ask about the review..."
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-ralph-500 disabled:opacity-50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={streaming || !input.trim()}
+            className="px-3 py-1.5 bg-ralph-600 hover:bg-ralph-700 disabled:opacity-50 rounded-lg text-xs font-medium shrink-0"
+          >
+            Send
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
