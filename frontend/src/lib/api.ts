@@ -408,6 +408,24 @@ export function getSavedReview(id: number) {
   return request<{ content: string | null }>(`/projects/${id}/review/saved`);
 }
 
+export interface Finding {
+  id: string;
+  title: string;
+  description: string;
+  severity: 'required' | 'nice-to-have';
+}
+
+export function analyzeFindings(id: number) {
+  return request<{ findings: Finding[] }>(`/projects/${id}/review/analyze`, { method: 'POST' });
+}
+
+export function generateFixPrd(id: number, findings: Finding[], branchName?: string) {
+  return request<{ prdJson: unknown }>(`/projects/${id}/review/generate-fix-prd`, {
+    method: 'POST',
+    body: JSON.stringify({ findings, branchName }),
+  });
+}
+
 export function archiveProject(id: number) {
   return request<{ success: boolean }>(`/projects/${id}/archive`, { method: 'POST' });
 }
