@@ -79,8 +79,16 @@ reviewRouter.post('/:id/review/save-feedback', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
-  const outputText = getFullOutputText(projectId);
+  let outputText = getFullOutputText(projectId);
+
   if (outputText === null) {
+    const fallbackPath = path.join(project.path, 'scripts', 'ralph', 'review-output.md');
+    if (fs.existsSync(fallbackPath)) {
+      outputText = fs.readFileSync(fallbackPath, 'utf-8');
+    }
+  }
+
+  if (!outputText) {
     return res.status(400).json({ error: 'No review output exists' });
   }
 
