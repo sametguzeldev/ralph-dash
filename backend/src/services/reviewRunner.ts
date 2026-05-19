@@ -2,11 +2,12 @@ import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
-import { getProvider, buildRunEnv, loadProviderConfig } from '../providers/registry.js';
+import { getProvider, buildRunEnv, loadProviderConfig, resolveReviewProvider } from '../providers/registry.js';
 
 interface ReviewRun {
   process?: ChildProcess;
   output: string[];
+  fullOutput: string[];
   totalLines: number;
   startedAt: Date;
   status: 'running' | 'completed' | 'failed';
@@ -15,8 +16,16 @@ interface ReviewRun {
 }
 
 const MAX_OUTPUT_LINES = 500;
+const FINISHED_TTL_MS = 60_000;
 
 const reviewRuns = new Map<number, ReviewRun>();
+
+function scheduleCleanup(projectId: number, info: ReviewRun): void {
+  setTimeout(() => {
+    const current = reviewRuns.get(projectId);
+    if (current === info) reviewRuns.delete(projectId);
+  }, FINISHED_TTL_MS);
+}
 
 function saveReviewOutput(projectPath: string, output: string[]): void {
   try {
@@ -85,28 +94,38 @@ export function startReview(
     reviewRuns.delete(projectId);
   }
 
-  const projectRow = db.prepare('SELECT path, review_provider, review_model_variant FROM projects WHERE id = ?').get(projectId) as
-    { path: string; review_provider: string | null; review_model_variant: string | null } | undefined;
+  const projectRow = db.prepare(
+    'SELECT path, provider, model_variant, review_provider, review_model_variant FROM projects WHERE id = ?'
+  ).get(projectId) as
+    {
+      path: string;
+      provider: string | null;
+      model_variant: string | null;
+      review_provider: string | null;
+      review_model_variant: string | null;
+    } | undefined;
 
   if (!projectRow) return { ok: false, reason: 'not-found', error: 'Project not found' };
-  if (!projectRow.review_provider) return { ok: false, reason: 'no-provider', error: 'No review provider configured for this project' };
+
+  const { providerName, modelVariant } = resolveReviewProvider(projectRow);
 
   let provider;
   try {
-    provider = getProvider(projectRow.review_provider);
+    provider = getProvider(providerName);
   } catch {
-    return { ok: false, reason: 'unknown-provider', error: `Unknown provider: ${projectRow.review_provider}` };
+    return { ok: false, reason: 'unknown-provider', error: `Unknown provider: ${providerName}` };
   }
 
-  const providerRow = db.prepare('SELECT config, is_configured FROM providers WHERE name = ?').get(projectRow.review_provider) as
+  const providerRow = db.prepare('SELECT config, is_configured FROM providers WHERE name = ?').get(providerName) as
     { config: string | null; is_configured: number } | undefined;
 
   if (!providerRow || !providerRow.is_configured) {
-    return { ok: false, reason: 'no-provider', error: `Provider '${projectRow.review_provider}' is not configured. Please configure authentication on the Models page first.` };
+    return { ok: false, reason: 'no-provider', error: `Provider '${providerName}' is not configured. Please configure authentication on the Models page first.` };
   }
 
   const info: ReviewRun = {
     output: [],
+    fullOutput: [],
     totalLines: 0,
     startedAt: new Date(),
     status: 'running',
@@ -117,15 +136,15 @@ export function startReview(
   reviewRuns.set(projectId, info);
 
   if (provider.name === 'claude') {
-    const providerConfig = loadProviderConfig(projectRow.review_provider);
-    const runEnv = buildRunEnv(projectRow.review_provider, projectRow.review_model_variant ?? undefined, providerConfig);
+    const providerConfig = loadProviderConfig(providerName);
+    const runEnv = buildRunEnv(providerName, modelVariant, providerConfig);
     const cliArgs = [
       '-p',
       `Do a PR-style code review comparing this branch against ${baseBranch}. Thoroughly check for bugs, logic errors, code quality issues, missing error handling, and naming inconsistencies. Be specific about file names and line numbers. End with a summary listing Required Fixes (must fix before merging) vs Nice-to-haves (optional improvements).`,
       '--dangerously-skip-permissions',
       '--output-format', 'stream-json',
       '--verbose',
-      ...provider.getCliArgs(providerConfig, projectRow.review_model_variant ?? undefined),
+      ...provider.getCliArgs(providerConfig, modelVariant),
     ];
 
     const child = spawn('claude', cliArgs, {
@@ -139,6 +158,7 @@ export function startReview(
 
     const appendLine = (line: string) => {
       info.output.push(line);
+      info.fullOutput.push(line);
       info.totalLines++;
       if (info.output.length > MAX_OUTPUT_LINES) info.output.shift();
     };
@@ -178,7 +198,10 @@ export function startReview(
       if (current && current.process === child && !current.stoppedByUser) {
         current.status = code === 0 ? 'completed' : 'failed';
         current.exitCode = code;
-        saveReviewOutput(projectRow.path, current.output);
+        saveReviewOutput(projectRow.path, current.fullOutput);
+      }
+      if (current && current.process === child) {
+        scheduleCleanup(projectId, current);
       }
     });
 
@@ -187,11 +210,12 @@ export function startReview(
       if (current && current.process === child) {
         current.status = 'failed';
         current.exitCode = -1;
+        scheduleCleanup(projectId, current);
       }
     });
   } else if (provider.name === 'codex') {
-    const providerConfig = loadProviderConfig(projectRow.review_provider);
-    const runEnv = buildRunEnv(projectRow.review_provider, projectRow.review_model_variant ?? undefined, providerConfig);
+    const providerConfig = loadProviderConfig(providerName);
+    const runEnv = buildRunEnv(providerName, modelVariant, providerConfig);
 
     const child = spawn('codex', ['exec', 'review', '--base', baseBranch], {
       cwd: projectRow.path,
@@ -204,6 +228,7 @@ export function startReview(
 
     const appendLine = (line: string) => {
       info.output.push(line);
+      info.fullOutput.push(line);
       info.totalLines++;
       if (info.output.length > MAX_OUTPUT_LINES) info.output.shift();
     };
@@ -222,7 +247,10 @@ export function startReview(
       if (current && current.process === child && !current.stoppedByUser) {
         current.status = code === 0 ? 'completed' : 'failed';
         current.exitCode = code;
-        saveReviewOutput(projectRow.path, current.output);
+        saveReviewOutput(projectRow.path, current.fullOutput);
+      }
+      if (current && current.process === child) {
+        scheduleCleanup(projectId, current);
       }
     });
 
@@ -231,6 +259,7 @@ export function startReview(
       if (current && current.process === child) {
         current.status = 'failed';
         current.exitCode = -1;
+        scheduleCleanup(projectId, current);
       }
     });
   } else {
@@ -257,7 +286,14 @@ export function stopReview(projectId: number): boolean {
     }
   }
 
+  scheduleCleanup(projectId, info);
+
   return true;
+}
+
+export function isReviewActive(projectId: number): boolean {
+  const info = reviewRuns.get(projectId);
+  return !!info && info.status === 'running';
 }
 
 export function getStatus(projectId: number): {
@@ -287,5 +323,5 @@ export function getOutput(projectId: number, since = 0): { lines: string[]; tota
 export function getFullOutputText(projectId: number): string | null {
   const info = reviewRuns.get(projectId);
   if (!info) return null;
-  return info.output.join('\n');
+  return info.fullOutput.join('\n');
 }

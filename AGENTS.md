@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to coding agents (e.g., Codex, Claude Code, OpenCode) when working with code in this repository.
 
 ## Project Overview
 
@@ -52,14 +52,14 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 - **`providers`**: id, name (unique), runner_script, is_configured, config (JSON string)
 
 ### Provider Abstraction
-Providers implement a common interface (`backend/src/providers/types.ts`) with methods: `getEnvVars()`, `getCliArgs()`, `getModelVariants()`, `getAuthConfig()`, `getFilesToSync()`, `parseConfig()`. Currently only Codex is implemented. The registry (`registry.ts`) resolves providers by name. Projects reference a provider by name and a model_variant string. The processManager and skillRunner inject provider-specific env vars and CLI args when spawning processes.
+Providers implement a common interface (`backend/src/providers/types.ts`) with methods: `getEnvVars()`, `getCliArgs()`, `getModelVariants()`, `getAuthConfig()`, `getFilesToSync()`, `parseConfig()`. Three providers are implemented today: Claude (`claude.ts`), Codex (`codex.ts`), and OpenCode (`opencode.ts`). The registry (`registry.ts`) resolves providers by name. Projects reference a provider by name and a model_variant string. The processManager and skillRunner inject provider-specific env vars and CLI args when spawning processes.
 
-**Token handling**: API keys are stored in provider config and OAuth tokens are written to `~/.Codex.json` with `hasCompletedOnboarding: true`.
+**Token handling**: API keys are stored in provider config. For Claude, OAuth tokens are written to `~/.claude.json` with `hasCompletedOnboarding: true`. Other providers manage their own auth files per their CLI conventions.
 
 ### Data Flow
 - Projects live on the host filesystem. The backend reads `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`, and `.last-branch` from each project's directory.
 - Task status is derived: `passes: true` → done, `inProgress: true` (and not passes) → in_progress, else → pending.
-- The runner spawns the provider's configured runner script (e.g., `ralph-cc.sh` for Codex provider) as a detached bash process, buffers output (max 500 lines), and serves it via polling. Finished runs kept for 60s TTL.
+- The runner spawns the provider's configured runner script (e.g., `ralph-cc.sh` for the Claude provider) as a detached bash process, buffers output (max 500 lines), and serves it via polling. Finished runs kept for 60s TTL.
 
 ### Workflow Detection
 The workflowDetector checks files in `scripts/ralph/` and `tasks/` to determine the workflow step, evaluated in this cascade: `prd-json-ready` → `prd-created` → `questions-answered` → `questions-created` → `no-files`. File patterns: `prd-questions-*.md`, `prd-*.md`, `prd.json`.
@@ -91,7 +91,7 @@ Archives are stored in `scripts/ralph/archive/{YYYY-MM-DD}-{featureName}/` folde
 - **Workspace mounts** — configured in `docker-compose.override.yml` (gitignored). Copy `docker-compose.override.example.yml` to get started. Each workspace directory is mounted read-write at the same path.
 
 ### File Sync
-When adding a project or triggering sync, the backend copies from the Ralph installation into the project: `.Codex/skills/` skill files, `scripts/ralph/ralph-cc.sh` (made executable), and `scripts/ralph/AGENTS.md`. The fileCopier uses the provider's `getFilesToSync()` to determine which files to copy.
+When adding a project or triggering sync, the backend copies provider-specific files from the Ralph installation into the project. The set of files is determined by each provider's `getFilesToSync()`. For the Claude provider this includes `.claude/skills/` skill files, `scripts/ralph/ralph-cc.sh` (made executable), and `scripts/ralph/CLAUDE.md`. Other providers may sync different files (e.g., AGENTS.md, provider-specific runner scripts).
 
 ## API Endpoints
 

@@ -203,6 +203,7 @@ export function WorkflowWizard({ projectId, isRunning, hasProvider, hasReviewPro
             {activeStep === 4 && (
               <ReviewStep
                 projectId={projectId}
+                isRunning={isRunning}
                 hasReviewProvider={hasReviewProvider}
                 workflow={workflow}
                 onGoToRun={() => {
@@ -741,12 +742,14 @@ function RunStep({
 
 function ReviewStep({
   projectId,
+  isRunning,
   hasReviewProvider,
   workflow,
   onGoToRun,
   onArchiveSuccess,
 }: {
   projectId: number;
+  isRunning: boolean;
   hasReviewProvider: boolean;
   workflow: WorkflowStatus | undefined;
   onGoToRun: () => void;
@@ -789,8 +792,9 @@ function ReviewStep({
     setPending(true);
     setError(null);
     try {
-      await startReview(projectId, baseBranch);
+      await startReview(projectId, baseBranch.trim());
       setHasStarted(true);
+      queryClient.invalidateQueries({ queryKey: ['review-status', projectId] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start review');
     } finally {
@@ -803,6 +807,7 @@ function ReviewStep({
     setError(null);
     try {
       await stopReview(projectId);
+      queryClient.invalidateQueries({ queryKey: ['review-status', projectId] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stop review');
     } finally {
@@ -857,13 +862,19 @@ function ReviewStep({
     }
   };
 
-  const canStart = hasPrdJson && prdJsonValid && hasReviewProvider && !isReviewRunning && baseBranch.trim().length > 0;
+  const canStart = hasPrdJson && prdJsonValid && hasReviewProvider && !isReviewRunning && !isRunning && baseBranch.trim().length > 0;
 
   const reviewContent = (
     <div className="space-y-3">
+      {isRunning && (
+        <p className="text-xs text-amber-400">
+          The implementation run is still active. Stop the run on step 4 before starting a review, archiving, or generating a fix &mdash; the working tree may still be changing.
+        </p>
+      )}
+
       {!hasReviewProvider && (
         <p className="text-xs text-amber-400">
-          No review provider configured. Select a review provider at the top of the page to enable reviews.
+          No review provider configured or selected provider is not authenticated. Select a configured review provider at the top of the page to enable reviews.
         </p>
       )}
 
@@ -929,14 +940,16 @@ function ReviewStep({
           <div className="flex items-center gap-3 pt-2 border-t border-gray-700">
             <button
               onClick={handleDone}
-              disabled={actionPending}
+              disabled={actionPending || isRunning}
+              title={isRunning ? 'Stop the implementation run before archiving' : undefined}
               className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium"
             >
               {actionPending ? 'Archiving...' : 'Done'}
             </button>
             <button
               onClick={handleFixAndRerun}
-              disabled={actionPending}
+              disabled={actionPending || isRunning}
+              title={isRunning ? 'Stop the implementation run before generating fixes' : undefined}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg text-sm font-medium"
             >
               {actionPending ? 'Saving feedback...' : 'Fix & Re-run'}
@@ -952,7 +965,8 @@ function ReviewStep({
               <p className="text-xs text-gray-300">Archive this feature without reviewing?</p>
               <button
                 onClick={handleSkipArchive}
-                disabled={actionPending}
+                disabled={actionPending || isRunning}
+                title={isRunning ? 'Stop the implementation run before archiving' : undefined}
                 className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-xs font-medium"
               >
                 {actionPending ? 'Archiving...' : 'Yes, archive'}
@@ -968,7 +982,8 @@ function ReviewStep({
           ) : (
             <button
               onClick={() => setShowSkipConfirm(true)}
-              disabled={actionPending}
+              disabled={actionPending || isRunning}
+              title={isRunning ? 'Stop the implementation run before archiving' : undefined}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-sm font-medium text-gray-300"
             >
               Skip &amp; Archive

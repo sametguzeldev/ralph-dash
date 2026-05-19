@@ -24,8 +24,9 @@ these instructions instead of the standard task below:
 When `scripts/ralph/review-feedback.md` exists at startup, the runner script
 reads its contents and prepends them to the agent prompt as a `# Review Feedback`
 section. This file is created by the "Fix & Re-run" action in the Review step,
-passing code review findings to the next run. The file is deleted immediately
-after reading so the next clean run doesn't re-inject stale feedback.
+passing code review findings to the next run. The file is deleted only after a
+successful runner exit so failed or interrupted runs can be retried with the
+same feedback.
 
 If the prompt you receive begins with `# Review Feedback`, treat that section as
 context from a prior code review. Address the feedback items as part of your

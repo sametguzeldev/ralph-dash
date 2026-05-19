@@ -5,7 +5,7 @@ import path from 'path';
 import { db } from '../db/connection.js';
 import { startReview, stopReview, getStatus, getOutput, getFullOutputText } from '../services/reviewRunner.js';
 import type { StartReviewFailReason } from '../services/reviewRunner.js';
-import { loadProviderConfig, buildRunEnv, getProvider } from '../providers/registry.js';
+import { loadProviderConfig, buildRunEnv, getProvider, resolveReviewProvider } from '../providers/registry.js';
 import type { ProjectRow } from '../db/types.js';
 
 interface Finding {
@@ -286,9 +286,22 @@ reviewRouter.post('/:id/review/analyze', async (req, res) => {
 
   const reviewContent = fs.readFileSync(filePath, 'utf-8');
 
-  const providerName = project.review_provider || 'claude';
+  const { providerName, modelVariant } = resolveReviewProvider(project);
+
+  try {
+    getProvider(providerName);
+  } catch {
+    return res.status(400).json({ error: `Unknown provider: ${providerName}` });
+  }
+
+  if (providerName !== 'claude') {
+    return res.status(400).json({
+      error: `Analyze findings is only supported for the 'claude' review provider (current: '${providerName}').`,
+    });
+  }
+
   const providerConfig = loadProviderConfig(providerName);
-  const runEnv = buildRunEnv(providerName, project.review_model_variant ?? undefined, providerConfig);
+  const runEnv = buildRunEnv(providerName, modelVariant, providerConfig);
 
   const prompt = `You are a code review analyzer. Extract all findings from the following code review output and return them as a JSON array. Return ONLY valid JSON with no markdown formatting, no explanation, no other text.
 
@@ -380,14 +393,19 @@ reviewRouter.post('/:id/review/chat', (req, res) => {
     return res.status(400).json({ error: 'message is required' });
   }
 
-  const providerName = project.review_provider || project.provider || 'claude';
-  const modelVariant = (project.review_model_variant || project.model_variant) ?? undefined;
+  const { providerName, modelVariant } = resolveReviewProvider(project);
 
   let provider;
   try {
     provider = getProvider(providerName);
   } catch {
     return res.status(400).json({ error: `Unknown provider: ${providerName}` });
+  }
+
+  if (providerName !== 'claude') {
+    return res.status(400).json({
+      error: `Review chat is only supported for the 'claude' review provider (current: '${providerName}').`,
+    });
   }
 
   const providerConfig = loadProviderConfig(providerName);
@@ -446,14 +464,13 @@ reviewRouter.post('/:id/review/chat', (req, res) => {
   const cliArgs = [
     '-p', conversationPrompt,
     '--append-system-prompt', systemContext,
-    '--dangerously-skip-permissions',
+    '--tools', '',
     '--output-format', 'stream-json',
     '--verbose',
     ...provider.getCliArgs(providerConfig, modelVariant),
   ];
 
   const child = spawn('claude', cliArgs, {
-    cwd: project.path,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: runEnv,
   });

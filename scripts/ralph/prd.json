@@ -1,6 +1,6 @@
 {
   "project": "RalphDash",
-  "branchName": "ralph/review-workflow-step",
+  "branchName": "ralph/review-triage-chat",
   "description": "Review Workflow Step - Add a Review step (step 5) to the workflow wizard for automated code reviews with Done/Fix & Re-run actions",
   "qualityChecks": {
     "TypeScript compile (backend)": "cd backend && npm run build",

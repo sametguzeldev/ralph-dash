@@ -70,6 +70,34 @@ export function normalizeModelVariant(providerName: string | null | undefined, m
 }
 
 /**
+ * Resolve the effective review provider/variant for a project.
+ * Defaulting cascade: review_provider -> provider -> DEFAULT_PROVIDER.
+ * The model variant follows the same provider it was stored under, so a
+ * Codex model_variant is never paired with Claude (or vice versa). Stale
+ * variants are normalized.
+ */
+export function resolveReviewProvider(project: {
+  provider: string | null;
+  model_variant: string | null;
+  review_provider: string | null;
+  review_model_variant: string | null;
+}): { providerName: string; modelVariant: string | undefined } {
+  if (project.review_provider) {
+    return {
+      providerName: project.review_provider,
+      modelVariant: normalizeModelVariant(project.review_provider, project.review_model_variant),
+    };
+  }
+  if (project.provider) {
+    return {
+      providerName: project.provider,
+      modelVariant: normalizeModelVariant(project.provider, project.model_variant),
+    };
+  }
+  return { providerName: DEFAULT_PROVIDER, modelVariant: undefined };
+}
+
+/**
  * Build environment variables for spawning a provider-backed process.
  * Clones process.env, strips CLAUDECODE, injects provider env vars and git identity.
  * @param providerName  Provider name (e.g., 'claude', 'codex')

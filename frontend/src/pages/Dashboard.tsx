@@ -129,13 +129,20 @@ export function Dashboard() {
     ? rawModelVariants.filter((v): v is string => typeof v === 'string')
     : [];
 
+  const effectiveReviewProviderName = data.project.review_provider ?? data.project.provider;
   const selectedReviewProvider: ProviderResponse | undefined = providers?.find(
-    (p) => p.name === data.project.review_provider
+    (p) => p.name === effectiveReviewProviderName
   );
   const rawReviewModelVariants = selectedReviewProvider?.config?.modelVariants;
   const reviewModelVariants = Array.isArray(rawReviewModelVariants)
     ? rawReviewModelVariants.filter((v): v is string => typeof v === 'string')
     : [];
+
+  // Review provider follows backend defaulting: review_provider -> project provider.
+  // While providers are still loading, fall back to the effective provider presence check.
+  const hasReviewProvider = providers
+    ? !!effectiveReviewProviderName && !!selectedReviewProvider?.is_configured
+    : !!effectiveReviewProviderName;
 
   return (
     <div className="space-y-6">
@@ -216,7 +223,7 @@ export function Dashboard() {
                   disabled={reviewProviderMutation.isPending}
                   className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2 py-1 focus:outline-none focus:border-ralph-500"
                 >
-                  <option value="">Not configured</option>
+                  <option value="">Use project provider</option>
                   {providers.map((p) => (
                     <option key={p.name} value={p.name}>
                       {p.name.charAt(0).toUpperCase() + p.name.slice(1)}
@@ -304,7 +311,7 @@ export function Dashboard() {
         projectId={projectId}
         isRunning={isRunning}
         hasProvider={hasProvider}
-        hasReviewProvider={!!data.project.review_provider}
+        hasReviewProvider={hasReviewProvider}
         onStartRun={() => startMutation.mutateAsync()}
         onStopRun={() => stopMutation.mutateAsync()}
       />

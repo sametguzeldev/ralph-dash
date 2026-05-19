@@ -42,10 +42,14 @@ if [ -n "$REVIEW_FEEDBACK" ]; then
   echo "Review feedback detected — will inject into agent prompts"
 fi
 
-# Delete the file after reading so the next clean run doesn't re-inject stale feedback
-if [ -f "$REVIEW_FEEDBACK_FILE" ]; then
-  rm -f "$REVIEW_FEEDBACK_FILE"
-fi
+# Defer deletion until successful exit so a failed/interrupted run can be retried.
+on_exit() {
+  local code=$?
+  if [ "$code" -eq 0 ] && [ -f "$REVIEW_FEEDBACK_FILE" ]; then
+    rm -f "$REVIEW_FEEDBACK_FILE"
+  fi
+}
+trap on_exit EXIT
 
 # ---------------------------------------------------------------------------
 # jq helpers
@@ -108,44 +112,59 @@ all_stories_done() {
 # Worktree helpers
 # ---------------------------------------------------------------------------
 
+# Session-scoped prefix so cleanup never touches worktrees/branches owned by
+# a different Ralph run or developer.
+SESSION_ID="$$-$(date +%s)"
+WORKTREE_PREFIX="ralph-${SESSION_ID}"
+
 # Return the current branch of a worktree directory
 worktree_branch_for() {
   local wt_dir="$1"
   git -C "$wt_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
 }
 
-# Remove a worktree and its branch (force-delete branch so it works for
-# both merged and unmerged/failed branches)
+# Remove a worktree owned by this session, and its branch if it also belongs
+# to this session (force-delete to handle unmerged/failed work).
 cleanup_worktree() {
   local wt_name="$1"
   local branch="$2"
   local wt_dir="$GIT_ROOT/.claude/worktrees/$wt_name"
+
+  # Only act on worktrees this session created.
+  case "$wt_name" in
+    "$WORKTREE_PREFIX"-*) ;;
+    *) return ;;
+  esac
+
   git -C "$GIT_ROOT" worktree remove --force "$wt_dir" 2>/dev/null || true
   if [ -n "$branch" ]; then
-    git -C "$GIT_ROOT" branch -D "$branch" 2>/dev/null || true
+    case "$branch" in
+      "$WORKTREE_PREFIX"-*)
+        git -C "$GIT_ROOT" branch -D "$branch" 2>/dev/null || true
+        ;;
+    esac
   fi
 }
 
-# Remove any ralph-* worktrees left behind by a previously interrupted run
+# Remove this session's worktrees if any survived a previous abort within the
+# same shell. We deliberately do NOT touch other ralph-* worktrees — they may
+# belong to a concurrent run or another developer.
 cleanup_stale_worktrees() {
   local stale_paths
   stale_paths=$(git -C "$GIT_ROOT" worktree list --porcelain \
     | grep "^worktree " \
     | awk '{print $2}' \
-    | grep "/.claude/worktrees/ralph-" || true)
+    | grep "/.claude/worktrees/${WORKTREE_PREFIX}-" || true)
 
   [ -z "$stale_paths" ] && return
 
-  echo "Cleaning up stale worktrees from interrupted run..."
+  echo "Cleaning up this session's leftover worktrees..."
   while IFS= read -r wt_path; do
     local wt_name branch
     wt_name=$(basename "$wt_path")
     branch=$(worktree_branch_for "$wt_path")
-    git -C "$GIT_ROOT" worktree remove --force "$wt_path" 2>/dev/null || true
-    if [ -n "$branch" ]; then
-      git -C "$GIT_ROOT" branch -D "$branch" 2>/dev/null || true
-    fi
-    echo "  Removed stale worktree: $wt_name"
+    cleanup_worktree "$wt_name" "$branch"
+    echo "  Removed worktree: $wt_name"
   done <<< "$stale_paths"
 }
 
@@ -294,7 +313,7 @@ ${SEQ_PROMPT}"
       STORY_DESC=$(echo "$story" | jq -r '.description')
       STORY_AC=$(echo "$story" | jq -r '.acceptanceCriteria | join("; ")')
 
-      WORKTREE_NAME="ralph-$(echo "$STORY_ID" | tr '[:upper:]' '[:lower:]')"
+      WORKTREE_NAME="${WORKTREE_PREFIX}-$(echo "$STORY_ID" | tr '[:upper:]' '[:lower:]')"
       WORKTREE_DIR="$GIT_ROOT/.claude/worktrees/$WORKTREE_NAME"
       OUT_FILE="/tmp/ralph-${STORY_ID}.out"
 
@@ -346,7 +365,7 @@ ${PROMPT}"
       STORY_ID="${PARALLEL_IDS[$idx]}"
       PID="${PARALLEL_PIDS[$idx]}"
       STORY_TITLE="${PARALLEL_TITLES[$idx]}"
-      WORKTREE_NAME="ralph-$(echo "$STORY_ID" | tr '[:upper:]' '[:lower:]')"
+      WORKTREE_NAME="${WORKTREE_PREFIX}-$(echo "$STORY_ID" | tr '[:upper:]' '[:lower:]')"
       WORKTREE_DIR="$GIT_ROOT/.claude/worktrees/$WORKTREE_NAME"
       OUT_FILE="/tmp/ralph-${STORY_ID}.out"
 

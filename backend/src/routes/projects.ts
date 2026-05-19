@@ -6,6 +6,7 @@ import { db } from '../db/connection.js';
 import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
 import { getRunStatus, stopRun } from '../services/processManager.js';
+import { isReviewActive, stopReview } from '../services/reviewRunner.js';
 import { detectWorkflowStep } from '../services/workflowDetector.js';
 import { DEFAULT_PROVIDER, getProvider, normalizeModelVariant } from '../providers/registry.js';
 import type { ProjectRow } from '../db/types.js';
@@ -114,6 +115,11 @@ projectsRouter.delete('/:id', (req, res) => {
   const runStatus = getRunStatus(projectId);
   if (runStatus.running) {
     stopRun(projectId);
+  }
+
+  // Stop any active review run before deleting
+  if (isReviewActive(projectId)) {
+    stopReview(projectId);
   }
 
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
