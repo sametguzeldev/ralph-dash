@@ -54,6 +54,22 @@ export function loadProviderConfig(providerName: string): ProviderConfig {
 }
 
 /**
+ * Normalize a persisted model variant for providers with fixed variant lists.
+ * Stale selections fall back to the provider default instead of being passed
+ * through to the underlying CLI.
+ */
+export function normalizeModelVariant(providerName: string | null | undefined, modelVariant: string | null | undefined): string | undefined {
+  const trimmed = modelVariant?.trim();
+  if (!providerName || !trimmed) return undefined;
+
+  const provider = getProvider(providerName);
+  const variants = provider.getModelVariants();
+  if (variants.length === 0) return trimmed;
+  if (variants.includes(trimmed)) return trimmed;
+  return variants[0];
+}
+
+/**
  * Build environment variables for spawning a provider-backed process.
  * Clones process.env, strips CLAUDECODE, injects provider env vars and git identity.
  * @param providerName  Provider name (e.g., 'claude', 'codex')
@@ -71,8 +87,10 @@ export function buildRunEnv(
   const env = { ...process.env };
   delete env.CLAUDECODE;
 
+  const effectiveModelVariant = normalizeModelVariant(providerName, modelVariant);
+
   // Inject provider env vars (auth token, model, etc.) — skip vars already set
-  const providerEnv = provider.getEnvVars(config, modelVariant);
+  const providerEnv = provider.getEnvVars(config, effectiveModelVariant);
   for (const [key, value] of Object.entries(providerEnv)) {
     if (!env[key]) {
       env[key] = value;

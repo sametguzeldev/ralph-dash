@@ -2,12 +2,17 @@ import path from 'path';
 import type { Provider, ProviderConfig } from './types.js';
 
 const MODEL_VARIANTS = [
-  'gpt-5.3-codex',
-  'gpt-5.2-codex',
-  'gpt-5.1-codex-max',
-  'gpt-5.2',
-  'gpt-5.1-codex-mini',
+  'gpt-5.5',
+  'gpt-5.4',
 ];
+
+const DEFAULT_MODEL_VARIANT = MODEL_VARIANTS[0];
+
+function normalizeModelVariant(model?: string): string | undefined {
+  const trimmed = model?.trim();
+  if (!trimmed) return undefined;
+  return MODEL_VARIANTS.includes(trimmed) ? trimmed : undefined;
+}
 
 export class CodexProvider implements Provider {
   readonly name = 'codex';
@@ -23,11 +28,10 @@ export class CodexProvider implements Provider {
       env.OPENAI_API_KEY = config.token;
     }
 
-    // Model preference (explicit variant overrides DB setting)
-    const model = modelVariant ?? config.model;
-    if (model) {
-      env.CODEX_MODEL = model;
-    }
+    // Model preference (explicit variant overrides DB setting). Fall back to the
+    // default when persisted selections reference models we no longer support.
+    const model = normalizeModelVariant(modelVariant) ?? normalizeModelVariant(config.model) ?? DEFAULT_MODEL_VARIANT;
+    env.CODEX_MODEL = model;
 
     return env;
   }
@@ -50,7 +54,7 @@ export class CodexProvider implements Provider {
   parseConfig(rawConfig: Record<string, unknown>): ProviderConfig {
     const token = (rawConfig.token as string) || undefined;
     const rawTokenType = rawConfig.tokenType as string | undefined;
-    const model = (rawConfig.model as string) || undefined;
+    const model = normalizeModelVariant(rawConfig.model as string | undefined);
 
     let tokenType: ProviderConfig['tokenType'];
     if (rawTokenType === 'chatgpt') {

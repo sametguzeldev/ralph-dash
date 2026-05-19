@@ -7,15 +7,39 @@ import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
 import { getRunStatus, stopRun } from '../services/processManager.js';
 import { detectWorkflowStep } from '../services/workflowDetector.js';
-import { DEFAULT_PROVIDER, getProvider } from '../providers/registry.js';
+import { DEFAULT_PROVIDER, getProvider, normalizeModelVariant } from '../providers/registry.js';
 import type { ProjectRow } from '../db/types.js';
 
 export const projectsRouter = Router();
+
+function withSafeModelSelections(project: ProjectRow): ProjectRow {
+  const safe = { ...project };
+
+  if (safe.provider && safe.model_variant) {
+    try {
+      safe.model_variant = normalizeModelVariant(safe.provider, safe.model_variant) ?? null;
+    } catch {
+      // Keep the stored value if the provider itself is unknown; other handlers
+      // will surface that as a configuration error.
+    }
+  }
+
+  if (safe.review_provider && safe.review_model_variant) {
+    try {
+      safe.review_model_variant = normalizeModelVariant(safe.review_provider, safe.review_model_variant) ?? null;
+    } catch {
+      // Keep the stored value if the provider itself is unknown.
+    }
+  }
+
+  return safe;
+}
 
 projectsRouter.get('/', (_req, res) => {
   const projects = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as ProjectRow[];
 
   const enriched = projects.map(p => {
+    const safeProject = withSafeModelSelections(p);
     const prd = parsePrd(p.path);
     const branch = readBranch(p.path);
     const runStatus = getRunStatus(p.id);
@@ -24,7 +48,7 @@ projectsRouter.get('/', (_req, res) => {
     const inProgressStories = prd?.userStories?.filter(s => s.inProgress && !s.passes).length || 0;
 
     return {
-      ...p,
+      ...safeProject,
       branch,
       totalStories,
       doneStories,
@@ -66,7 +90,7 @@ projectsRouter.post('/', (req, res) => {
       return res.status(500).json({ error: message });
     }
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid) as ProjectRow;
-    res.status(201).json(project);
+    res.status(201).json(withSafeModelSelections(project));
   } catch (err: unknown) {
     if (err && typeof err === 'object' && 'code' in err && err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'Project with this path already exists' });
@@ -127,7 +151,7 @@ projectsRouter.get('/:id', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
-  res.json(project);
+  res.json(withSafeModelSelections(project));
 });
 
 projectsRouter.get('/:id/status', (req, res) => {
@@ -151,7 +175,7 @@ projectsRouter.get('/:id/status', (req, res) => {
   })) || [];
 
   res.json({
-    project,
+    project: withSafeModelSelections(project),
     prd: prd ? { ...prd, userStories: tasks } : null,
     progress,
     branch,
@@ -483,7 +507,7 @@ projectsRouter.get('/:id/archives/:folder', (req, res) => {
   })) || [];
 
   res.json({
-    project,
+    project: withSafeModelSelections(project),
     prd: prd ? { ...prd, userStories: tasks } : null,
     progress,
     branch: prd?.branchName || null,

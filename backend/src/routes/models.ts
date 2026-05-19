@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
 import type { ProviderRow } from '../db/types.js';
-import { getProvider, getAllProviders } from '../providers/registry.js';
+import { getProvider, getAllProviders, normalizeModelVariant } from '../providers/registry.js';
 
 export const modelsRouter = Router();
 
@@ -23,7 +23,7 @@ function buildVirtualProviderRow(providerName: string): {
   config: Record<string, unknown>;
 } {
   const provider = getProvider(providerName);
-  const config = sanitizeProviderConfig(null);
+  const config = sanitizeProviderConfig(null, providerName);
 
   // Always include modelVariants from the registry so the frontend can render dropdowns
   const variants = provider.getModelVariants();
@@ -93,7 +93,7 @@ function setClaudeOnboarding(value: boolean): void {
   }
 }
 
-function sanitizeProviderConfig(raw: string | null): Record<string, unknown> {
+function sanitizeProviderConfig(raw: string | null, providerName?: string): Record<string, unknown> {
   const config = parseConfig(raw);
   const safe: Record<string, unknown> = {};
 
@@ -102,9 +102,14 @@ function sanitizeProviderConfig(raw: string | null): Record<string, unknown> {
     safe.claudeModel = config.claudeModel;
   }
 
-  // Generic model key (used by codex, opencode)
+  // Generic model key (used by codex, opencode). For providers with fixed
+  // lists, hide stale persisted selections instead of surfacing unsupported models.
   if (typeof config.model === 'string' && config.model.trim()) {
-    safe.model = config.model;
+    const trimmedModel = config.model.trim();
+    const model = providerName ? normalizeModelVariant(providerName, trimmedModel) : trimmedModel;
+    if (model === trimmedModel) {
+      safe.model = model;
+    }
   }
 
   if (Array.isArray(config.modelVariants) && (config.modelVariants as unknown[]).every((v) => typeof v === 'string')) {
@@ -144,7 +149,7 @@ modelsRouter.get('/', (_req, res) => {
 
     if (row) {
       // Registered and has DB row — use stored config
-      const config = sanitizeProviderConfig(row.config);
+      const config = sanitizeProviderConfig(row.config, row.name);
       // Always include modelVariants from the registry so the frontend can render dropdowns
       const variants = provider.getModelVariants();
       if (variants.length > 0) {
@@ -180,7 +185,7 @@ modelsRouter.get('/:provider', (req, res) => {
   }
 
   // Registered and has DB row — include modelVariants from registry
-  const config = sanitizeProviderConfig(row.config);
+  const config = sanitizeProviderConfig(row.config, row.name);
   const provider = getProvider(row.name);
   const variants = provider.getModelVariants();
   if (variants.length > 0) {
