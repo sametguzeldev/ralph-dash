@@ -48,7 +48,7 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 
 ### Database Schema (3 tables)
 - **`settings`**: key-value pairs (e.g., ralphPath)
-- **`projects`**: id, name, path (unique), created_at, provider, model_variant
+- **`projects`**: id, name, path (unique), created_at, provider, model_variant, review_provider, review_model_variant
 - **`providers`**: id, name (unique), runner_script, is_configured, config (JSON string)
 
 ### Provider Abstraction
@@ -98,9 +98,10 @@ When adding a project or triggering sync, the backend copies provider-specific f
 All routes mounted under `/api/`. Key endpoint groups:
 
 - **Settings**: `GET/PUT /settings`, `PUT/DELETE /settings/git-config`
-- **Projects**: `GET/POST /projects`, `GET/DELETE /projects/:id`, `GET /projects/:id/status`, `POST /projects/:id/sync`, `PUT /projects/:id/provider`, `PUT /projects/:id/model-variant`
+- **Projects**: `GET/POST /projects`, `GET/DELETE /projects/:id`, `GET /projects/:id/status`, `POST /projects/:id/sync`, `PUT /projects/:id/provider`, `PUT /projects/:id/model-variant`, `PUT /projects/:id/review-provider`, `PUT /projects/:id/review-model-variant`, `POST /projects/:id/archive`
 - **Archives**: `GET /projects/:id/archives`, `GET /projects/:id/archives/:folder`
 - **Runner**: `POST /projects/:id/run/start`, `POST /projects/:id/run/stop`, `GET /projects/:id/run/status`, `GET /projects/:id/run/output?since=N`
+- **Review**: `POST /projects/:id/review/start`, `POST /projects/:id/review/stop`, `GET /projects/:id/review/status`, `GET /projects/:id/review/output?since=N`, `GET /projects/:id/review/saved`, `POST /projects/:id/review/save-feedback`, `POST /projects/:id/review/analyze`, `POST /projects/:id/review/generate-fix-prd`, `GET/DELETE /projects/:id/review/chat/history`, `POST /projects/:id/review/chat`
 - **Workflow**: `GET /projects/:id/workflow/status`, `GET /projects/:id/workflow/files`, `GET/PUT/DELETE /projects/:id/workflow/file`, `POST /projects/:id/workflow/skill/start`, `POST /projects/:id/workflow/skill/stop`, `GET /projects/:id/workflow/skill/status`, `GET /projects/:id/workflow/skill/output?since=N`, `POST /projects/:id/workflow/prd-json/validate`
 - **Models**: `GET /models`, `GET /models/:provider`, `PUT/DELETE /models/:provider/token`, `PUT/DELETE /models/:provider/model`, `PUT /models/:provider/preferences`
 - **Health**: `GET /health`

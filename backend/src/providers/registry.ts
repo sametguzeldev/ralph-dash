@@ -12,6 +12,10 @@ function register(provider: Provider): void {
   providers.set(provider.name, provider);
 }
 
+function isRegisteredProvider(name: string | null | undefined): name is string {
+  return typeof name === 'string' && providers.has(name);
+}
+
 // Register built-in providers
 register(new ClaudeProvider());
 register(new CodexProvider());
@@ -62,6 +66,7 @@ export function normalizeModelVariant(providerName: string | null | undefined, m
   const trimmed = modelVariant?.trim();
   if (!providerName || !trimmed) return undefined;
 
+  if (!isRegisteredProvider(providerName)) return undefined;
   const provider = getProvider(providerName);
   const variants = provider.getModelVariants();
   if (variants.length === 0) return trimmed;
@@ -82,13 +87,13 @@ export function resolveReviewProvider(project: {
   review_provider: string | null;
   review_model_variant: string | null;
 }): { providerName: string; modelVariant: string | undefined } {
-  if (project.review_provider) {
+  if (isRegisteredProvider(project.review_provider)) {
     return {
       providerName: project.review_provider,
       modelVariant: normalizeModelVariant(project.review_provider, project.review_model_variant),
     };
   }
-  if (project.provider) {
+  if (isRegisteredProvider(project.provider)) {
     return {
       providerName: project.provider,
       modelVariant: normalizeModelVariant(project.provider, project.model_variant),

@@ -268,7 +268,7 @@ reviewRouter.post('/:id/review/generate-fix-prd', (req, res) => {
   fs.mkdirSync(ralphPath, { recursive: true });
   fs.writeFileSync(prdPath, JSON.stringify(prdJson, null, 2), 'utf-8');
 
-  res.json({ prdJson });
+  res.json({ success: true, prdJson });
 });
 
 reviewRouter.post('/:id/review/analyze', async (req, res) => {
@@ -477,6 +477,8 @@ reviewRouter.post('/:id/review/chat', (req, res) => {
 
   let fullResponse = '';
   let stdoutBuf = '';
+  let stderrBuf = '';
+  let responseEnded = false;
 
   child.stdout?.on('data', (data: Buffer) => {
     stdoutBuf += data.toString();
@@ -491,17 +493,28 @@ reviewRouter.post('/:id/review/chat', (req, res) => {
     }
   });
 
-  child.stderr?.on('data', () => {
-    // discard stderr for chat
+  child.stderr?.on('data', (data: Buffer) => {
+    stderrBuf += data.toString();
   });
 
-  child.on('close', () => {
+  child.on('close', (code, signal) => {
+    if (responseEnded) return;
+
     if (stdoutBuf.trim()) {
       const text = extractTextFromStreamLine(stdoutBuf.trim());
       if (text) {
         fullResponse += text;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
+    }
+
+    if (code !== 0) {
+      const error = stderrBuf.trim() || `Claude exited with ${signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`}`;
+      res.write(`data: ${JSON.stringify({ error })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      responseEnded = true;
+      res.end();
+      return;
     }
 
     if (fullResponse) {
@@ -514,12 +527,15 @@ reviewRouter.post('/:id/review/chat', (req, res) => {
     }
 
     res.write('data: [DONE]\n\n');
+    responseEnded = true;
     res.end();
   });
 
   child.on('error', (err) => {
+    if (responseEnded) return;
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.write('data: [DONE]\n\n');
+    responseEnded = true;
     res.end();
   });
 

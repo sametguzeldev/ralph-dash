@@ -420,7 +420,7 @@ export function analyzeFindings(id: number) {
 }
 
 export function generateFixPrd(id: number, findings: Finding[], branchName?: string) {
-  return request<{ prdJson: unknown }>(`/projects/${id}/review/generate-fix-prd`, {
+  return request<{ success: boolean; prdJson: unknown }>(`/projects/${id}/review/generate-fix-prd`, {
     method: 'POST',
     body: JSON.stringify({ findings, branchName }),
   });

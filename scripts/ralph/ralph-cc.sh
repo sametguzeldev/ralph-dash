@@ -221,6 +221,9 @@ if [ -f "$PRD_FILE" ]; then
       if git -C "$GIT_ROOT" show-ref --verify --quiet "refs/heads/$FEATURE_BRANCH"; then
         git -C "$GIT_ROOT" checkout "$FEATURE_BRANCH"
         echo "Switched to branch: $FEATURE_BRANCH"
+      elif git -C "$GIT_ROOT" show-ref --verify --quiet "refs/remotes/origin/$FEATURE_BRANCH"; then
+        git -C "$GIT_ROOT" checkout -b "$FEATURE_BRANCH" --track "origin/$FEATURE_BRANCH"
+        echo "Created tracking branch from origin/$FEATURE_BRANCH"
       else
         git -C "$GIT_ROOT" checkout -b "$FEATURE_BRANCH"
         echo "Created and switched to branch: $FEATURE_BRANCH"
@@ -286,10 +289,12 @@ ${SEQ_PROMPT}"
     clear_story_inprogress "$SEQ_ID"
 
     if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
-      echo ""
-      echo "Ralph completed all tasks!"
-      echo "Completed at iteration $i of $MAX_ITERATIONS"
-      exit 0
+      if all_stories_done; then
+        echo ""
+        echo "Ralph completed all tasks!"
+        echo "Completed at iteration $i of $MAX_ITERATIONS"
+        exit 0
+      fi
     fi
 
   # -------------------------------------------------------------------------

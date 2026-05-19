@@ -1247,6 +1247,14 @@ function ReviewOutputLog({
   const prevRunningRef = useRef(running);
 
   useEffect(() => {
+    setLines([]);
+    setSavedContent(null);
+    setElapsed('');
+    sinceRef.current = 0;
+    prevRunningRef.current = running;
+  }, [projectId]);
+
+  useEffect(() => {
     if (running && !prevRunningRef.current) {
       setLines([]);
       setSavedContent(null);
