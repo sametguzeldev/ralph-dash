@@ -54,7 +54,7 @@ No root-level package.json — run npm commands from `frontend/` or `backend/` d
 ### Provider Abstraction
 Providers implement a common interface (`backend/src/providers/types.ts`) with methods: `getEnvVars()`, `getCliArgs()`, `getModelVariants()`, `getAuthConfig()`, `getFilesToSync()`, `parseConfig()`. Currently only Claude is implemented. The registry (`registry.ts`) resolves providers by name. Projects reference a provider by name and a model_variant string. The processManager and skillRunner inject provider-specific env vars and CLI args when spawning processes.
 
-**Token handling**: API keys are stored in provider config and OAuth tokens are written to `~/.claude.json` with `hasCompletedOnboarding: true`.
+**Token handling**: Tokens (API keys and OAuth) are stored in provider config and injected into spawned processes via env vars (`CLAUDE_CODE_OAUTH_TOKEN` for OAuth, `ANTHROPIC_API_KEY` for API keys). No files are written to `~/.claude` — Claude Code reads auth purely from the env var.
 
 ### Data Flow
 - Projects live on the host filesystem. The backend reads `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`, and `.last-branch` from each project's directory.

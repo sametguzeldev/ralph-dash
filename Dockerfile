@@ -21,9 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends git jq && rm -r
 # Install Claude Code
 RUN npm install -g @anthropic-ai/claude-code@latest
 
-# Create directory for Claude config and credentials
-RUN mkdir -p /home/node/.claude && chown -R node:node /home/node
-
 COPY --from=backend-build /app/backend/dist ./dist
 COPY --from=backend-build /app/backend/package.json ./
 COPY --from=backend-build /app/backend/package-lock.json* ./

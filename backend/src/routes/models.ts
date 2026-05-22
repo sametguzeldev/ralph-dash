@@ -76,23 +76,6 @@ function parseConfig(raw: string | null): Record<string, unknown> {
   }
 }
 
-function setClaudeOnboarding(value: boolean): void {
-  try {
-    const homeDir = process.env.HOME || '/home/node';
-    const claudeJsonPath = path.join(homeDir, '.claude.json');
-    let existing: Record<string, unknown> = {};
-    try {
-      existing = JSON.parse(fs.readFileSync(claudeJsonPath, 'utf-8'));
-    } catch {
-      // File doesn't exist or is invalid — start fresh
-    }
-    existing.hasCompletedOnboarding = value;
-    fs.writeFileSync(claudeJsonPath, JSON.stringify(existing, null, 2));
-  } catch (err) {
-    console.error('Failed to update ~/.claude.json:', err);
-  }
-}
-
 function sanitizeProviderConfig(raw: string | null): Record<string, unknown> {
   const config = parseConfig(raw);
   const safe: Record<string, unknown> = {};
@@ -251,10 +234,6 @@ modelsRouter.put('/:provider/token', (req, res) => {
     db.prepare('UPDATE providers SET is_configured = 1, config = ? WHERE name = ?')
       .run(JSON.stringify(config), row.name);
 
-    if (tokenType === 'oauth') {
-      setClaudeOnboarding(true);
-    }
-
     return res.json({ success: true, tokenType });
   }
 
@@ -296,16 +275,11 @@ modelsRouter.delete('/:provider/token', (req, res) => {
   const config = parseConfig(row.config);
 
   if (row.name === 'claude') {
-    const wasOAuth = config.claudeTokenType === 'oauth';
     delete config.claudeToken;
     delete config.claudeTokenType;
 
     db.prepare('UPDATE providers SET is_configured = 0, config = ? WHERE name = ?')
       .run(JSON.stringify(config), row.name);
-
-    if (wasOAuth) {
-      setClaudeOnboarding(false);
-    }
   } else {
     delete config.token;
     delete config.tokenType;

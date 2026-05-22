@@ -1,13 +1,7 @@
 import path from 'path';
 import type { Provider, ProviderConfig } from './types.js';
 
-const MODEL_VARIANTS = [
-  'gpt-5.3-codex',
-  'gpt-5.2-codex',
-  'gpt-5.1-codex-max',
-  'gpt-5.2',
-  'gpt-5.1-codex-mini',
-];
+const MODEL_VARIANTS = ['gpt-5.5'];
 
 export class CodexProvider implements Provider {
   readonly name = 'codex';
@@ -33,7 +27,7 @@ export class CodexProvider implements Provider {
   }
 
   getCliArgs(_config: ProviderConfig, _modelVariant?: string): string[] {
-    return ['--full-auto'];
+    return [];
   }
 
   getModelVariants(): string[] {
