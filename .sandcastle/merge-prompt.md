@@ -22,6 +22,8 @@ Do **not** create a separate merge-summary commit. One squash commit per issue i
 
 # CLOSE ISSUES
 
-Do not close issues here — the `Closes #<id>` trailer in each commit will close them automatically once the integration branch's PR is merged into main.
+After each successful squash commit, close the corresponding issue with `gh issue close <id> --comment "Squashed onto integration branch \`{{INTEGRATION_BRANCH}}\` — will auto-merge to main when the PR lands."`. This is required: sandcastle's outer loop re-plans on the open-issue list, so any issue you leave open will be re-picked-up next iteration and re-implemented from scratch.
+
+(The `Closes #<id>` trailer is still useful as a fallback — if the issue is somehow still open when the PR merges to main, GitHub closes it then. But the trailer alone is not enough; close in-loop too.)
 
 Once you've merged everything you can, output <promise>COMPLETE</promise>.
