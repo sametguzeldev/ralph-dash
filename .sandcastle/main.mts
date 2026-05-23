@@ -276,6 +276,17 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   git(`checkout ${integrationBranch}`);
 
   console.log("\nBranches merged.");
+
+  // If the merger closed the parent PRD this iteration, the work is done —
+  // skip the next planner invocation and go straight to opening the PR.
+  const prdState = execSync(
+    `gh issue view ${prd.id} --json state --jq .state || echo OPEN`,
+    { encoding: "utf8" },
+  ).trim();
+  if (prdState === "CLOSED") {
+    console.log(`Parent PRD #${prd.id} is closed. PRD complete — exiting loop.`);
+    break;
+  }
 }
 
 // -------------------------------------------------------------------------
