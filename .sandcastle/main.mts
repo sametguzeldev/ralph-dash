@@ -240,6 +240,13 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // The merger needs a sandbox already on the integration branch so its
   // `git merge --squash` commits land there. sandcastle.run() doesn't accept
   // a branch directly, so we create a sandbox first and close it afterwards.
+  //
+  // Git refuses to check the same branch out in two worktrees, so we have to
+  // detach the main repo from the integration branch before createSandbox()
+  // can claim it, then re-attach after the sandbox closes so the next
+  // iteration's branchExists/checkout dance (and the post-loop push) finds
+  // the main repo where they expect it.
+  git("checkout main");
   const mergeSandbox = await sandcastle.createSandbox({
     branch: integrationBranch,
     sandbox: docker(dockerOptions),
@@ -264,6 +271,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   } finally {
     await mergeSandbox.close();
   }
+  // Re-attach so the next iteration and the post-loop push find us here.
+  git(`checkout ${integrationBranch}`);
 
   console.log("\nBranches merged.");
 }
