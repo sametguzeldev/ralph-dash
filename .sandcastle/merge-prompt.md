@@ -40,6 +40,32 @@ If that command returns an empty array, the PRD is fully delivered — close it 
 gh issue close {{PRD_ID}} --comment "All child issues squashed onto \`{{INTEGRATION_BRANCH}}\`. PRD complete."
 ```
 
-If it returns one or more open children, leave `#{{PRD_ID}}` open.
+If it returns one or more open children, leave `#{{PRD_ID}}` open and **skip the PR step below** — it's not time yet.
 
-Once you've merged everything you can, output <promise>COMPLETE</promise>.
+# OPEN A PR (only when the PRD just closed)
+
+Only if you closed `#{{PRD_ID}}` in the step above:
+
+1. Push the integration branch: `git push -u origin {{INTEGRATION_BRANCH}}`.
+2. Check whether a PR already exists for this branch:
+   ```
+   gh pr list --head {{INTEGRATION_BRANCH}} --json number --jq '.[0].number'
+   ```
+   If it returns a number, skip step 3 — the PR is already there.
+3. Otherwise, open a PR against `main` with a body you write yourself. The body should be a real summary of what changed, not boilerplate. Suggested shape:
+
+   - Opening line: one-sentence description of what the PRD delivered (paraphrase from PRD `#{{PRD_ID}}`'s problem statement — read it with `gh issue view {{PRD_ID}}`).
+   - `## Squashed commits` section: one bullet per merged issue (id, title, one-line summary of the change). You already squashed them — use the commit subjects you wrote.
+   - `## Closes` trailers: `Closes #<id>` for each child issue and `Closes #{{PRD_ID}}` for the PRD itself. These are belt-and-braces — the issues are already closed in-loop, but the trailers make the relationship obvious in the PR UI.
+
+   Use a HEREDOC for the body so multi-line formatting survives:
+   ```
+   gh pr create --base main --head {{INTEGRATION_BRANCH}} \
+     --title "<concise title — paraphrase the PRD, e.g. 'Introduce ProcessRun and Skills registry'>" \
+     --body "$(cat <<'EOF'
+   <your body here>
+   EOF
+   )"
+   ```
+
+Once you've done all the above, output <promise>COMPLETE</promise>.

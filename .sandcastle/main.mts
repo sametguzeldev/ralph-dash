@@ -289,33 +289,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   }
 }
 
-// -------------------------------------------------------------------------
-// Open a PR for the integration branch.
-//
-// All squashed issue commits live on `sandcastle/prd-<id>-<slug>`. We push it
-// to origin and open a PR against main. The `Closes #<id>` trailers in the
-// squash commits will close the underlying issues when the PR is merged.
-// -------------------------------------------------------------------------
-const currentBranch = git("rev-parse --abbrev-ref HEAD");
-if (currentBranch.startsWith("sandcastle/prd-")) {
-  console.log(`\nPushing ${currentBranch} and opening PR…`);
-  git(`push -u origin ${currentBranch}`);
-  const existingPr = execSync(
-    `gh pr list --head ${currentBranch} --json number --jq '.[0].number' || true`,
-    { encoding: "utf8" },
-  ).trim();
-  if (existingPr) {
-    console.log(`PR #${existingPr} already exists for ${currentBranch}.`);
-  } else {
-    execSync(
-      `gh pr create --base main --head ${currentBranch} ` +
-        `--title ${JSON.stringify(`Sandcastle: ${currentBranch}`)} ` +
-        `--body ${JSON.stringify(
-          `Automated PR from sandcastle for branch \`${currentBranch}\`. Each commit is a squash of one issue branch; merging this PR will close the referenced issues.`,
-        )}`,
-      { stdio: "inherit" },
-    );
-  }
-}
+// The merger agent pushes the integration branch and opens the PR itself
+// when it closes the parent PRD — see .sandcastle/merge-prompt.md. The
+// orchestrator's job ends here.
 
 console.log("\nAll done.");
