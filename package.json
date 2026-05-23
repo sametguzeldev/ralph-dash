@@ -1,0 +1,28 @@
+{
+  "name": "ralph-dash",
+  "version": "1.0.0",
+  "description": "A self-hosted web dashboard for monitoring and controlling [Ralph](https://github.com/sametguzeldev/ralph) AI loop iterations across multiple projects. Runs locally via Docker and reads project data directly from the filesystem.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "sandcastle": "npx tsx .sandcastle/main.mts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sametguzeldev/ralph-dash.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sametguzeldev/ralph-dash/issues"
+  },
+  "homepage": "https://github.com/sametguzeldev/ralph-dash#readme",
+  "devDependencies": {
+    "@ai-hero/sandcastle": "0.5.10"
+  }
+}
