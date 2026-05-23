@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../db/connection.js';
 import { startRun, stopRun, getRunStatus, getRunOutput } from '../services/processManager.js';
 import type { ProjectRow } from '../db/types.js';
+import { ProviderError } from '../providers/providerError.js';
 
 export const runnerRouter = Router();
 
@@ -14,12 +15,21 @@ runnerRouter.post('/:id/run/start', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
-  const result = startRun(project.id, project.path);
-  if (!result.ok) {
-    return res.status(409).json({ error: result.error });
-  }
+  try {
+    const result = startRun(project.id, project.path);
+    if (!result.ok) {
+      return res.status(409).json({ error: 'Run already in progress', conflictKind: result.conflictKind });
+    }
 
-  res.json({ success: true, ...getRunStatus(project.id) });
+    res.json({ success: true, ...getRunStatus(project.id) });
+  } catch (error) {
+    if (error instanceof ProviderError) {
+      return res.status(400).json({ error: error.message, kind: error.kind });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return res.status(500).json({ error: message });
+  }
 });
 
 runnerRouter.post('/:id/run/stop', (req, res) => {
