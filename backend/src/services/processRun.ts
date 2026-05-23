@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import type { SkillName } from './skillRunner.js';
+import type { SkillName } from './skills/registry.js';
 
 export type RunKind = 'loop' | 'skill';
 
@@ -9,7 +9,7 @@ export interface RunSpec {
   command: string;
   args: string[];
   cwd: string;
-  env: Record<string, string>;
+  env: NodeJS.ProcessEnv;
   parseLine?: (raw: string) => string | null;
 }
 
@@ -30,7 +30,7 @@ interface SpawnOptions {
   cwd: string;
   detached: true;
   stdio: ['ignore', 'pipe', 'pipe'];
-  env: Record<string, string>;
+  env: NodeJS.ProcessEnv;
 }
 
 interface StreamLike {
