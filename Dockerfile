@@ -18,8 +18,8 @@ WORKDIR /app
 # Install runtime dependencies (git is required by ralph-cc.sh)
 RUN apt-get update && apt-get install -y --no-install-recommends git jq && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code
-RUN npm install -g @anthropic-ai/claude-code@latest
+# Install Claude Code and Codex CLIs
+RUN npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
 
 COPY --from=backend-build /app/backend/dist ./dist
 COPY --from=backend-build /app/backend/package.json ./
