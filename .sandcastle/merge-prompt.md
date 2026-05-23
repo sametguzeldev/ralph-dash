@@ -24,4 +24,4 @@ Do **not** create a separate merge-summary commit. One squash commit per issue i
 
 Do not close issues here — the `Closes #<id>` trailer in each commit will close them automatically once the integration branch's PR is merged into main.
 
-Once you've merged everything you can, output <promise>COMPLETE</promise>.
+Once you've merged everything you can, run `git checkout main` so the integration branch is free for the next sandcastle run's worktree, then output <promise>COMPLETE</promise>. The integration branch persists — push it and open a PR when you're ready.
