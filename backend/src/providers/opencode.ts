@@ -1,9 +1,58 @@
 import path from 'path';
-import type { Provider, ProviderConfig } from './types.js';
+import type { Provider, ProviderConfig, FileSyncEntry } from './types.js';
+import { ProviderError } from './providerError.js';
+import { cloneRunEnv, compactEnv, getRalphPath } from './helpers.js';
+import type { RunSpec } from '../services/processRun.js';
+import type { SkillName } from '../services/skills/types.js';
 
 export class OpenCodeProvider implements Provider {
   readonly name = 'opencode';
   readonly runnerScript = 'ralph-opencode.sh';
+
+  describeLoop(config: ProviderConfig, modelVariant: string | undefined, projectPath: string): RunSpec {
+    const scriptPath = path.join(projectPath, 'scripts', 'ralph', this.runnerScript);
+    return {
+      kind: 'loop',
+      command: 'bash',
+      args: [scriptPath, ...this.getCliArgs(config, modelVariant)],
+      cwd: projectPath,
+      env: compactEnv(this.buildRunEnv(config, modelVariant)),
+    };
+  }
+
+  describeSkill(
+    _config: ProviderConfig,
+    _modelVariant: string | undefined,
+    _projectPath: string,
+    _skill: SkillName,
+    _prompt: string,
+  ): RunSpec {
+    throw new ProviderError('not-configured', 'opencode', 'Skill runs are not supported for opencode');
+  }
+
+  syncManifest(): FileSyncEntry[] {
+    const root = getRalphPath(this.name);
+    return [
+      {
+        sourcePath: path.join(root, 'scripts', 'ralph', 'ralph-opencode.sh'),
+        destRelative: path.join('scripts', 'ralph', 'ralph-opencode.sh'),
+        executable: true,
+      },
+      {
+        sourcePath: path.join(root, 'scripts', 'ralph', 'OPENCODE.md'),
+        destRelative: 'OPENCODE.md',
+      },
+    ];
+  }
+
+  private buildRunEnv(config: ProviderConfig, modelVariant?: string): Record<string, string | undefined> {
+    const env = cloneRunEnv(this.getEnvVars(config, modelVariant));
+    const model = modelVariant ?? config.model;
+    if (model && !env.OPENCODE_MODEL) {
+      env.OPENCODE_MODEL = model;
+    }
+    return env;
+  }
 
   getEnvVars(config: ProviderConfig, _modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};

@@ -1,5 +1,8 @@
 import path from 'path';
-import type { Provider, ProviderConfig } from './types.js';
+import type { Provider, ProviderConfig, FileSyncEntry } from './types.js';
+import { cloneRunEnv, compactEnv, getRalphPath, readSkillFile } from './helpers.js';
+import type { RunSpec } from '../services/processRun.js';
+import type { SkillName } from '../services/skills/types.js';
 
 const SKILLS_TO_SYNC = ['prd', 'prd-questions', 'ralph'];
 const SCRIPTS_TO_SYNC = ['ralph-cc.sh', 'CLAUDE.md'];
@@ -10,9 +13,134 @@ const MODEL_VARIANTS = [
   'claude-haiku-4-5-20251001',
 ];
 
+function skillFilePath(projectPath: string, skill: SkillName): string {
+  return path.join(projectPath, '.claude', 'skills', skill, 'SKILL.md');
+}
+
+/**
+ * Parse a stream-json line from claude CLI and extract a human-readable message.
+ * Returns null if the line has no useful display content.
+ */
+export function parseStreamJsonLine(raw: string): string | null {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return raw.trim() || null;
+  }
+
+  const type = parsed.type as string | undefined;
+
+  if (type === 'system' && parsed.subtype === 'init') {
+    return '⏳ Claude session started...';
+  }
+
+  if (type === 'assistant' && parsed.message) {
+    const msg = parsed.message as Record<string, unknown>;
+    const content = msg.content as Array<Record<string, unknown>> | undefined;
+    if (!content) return null;
+
+    const parts: string[] = [];
+    for (const block of content) {
+      if (block.type === 'text' && typeof block.text === 'string') {
+        const text = block.text.trim();
+        if (text) parts.push(text);
+      } else if (block.type === 'tool_use') {
+        const name = block.name as string;
+        const input = block.input as Record<string, unknown> | undefined;
+        if (name === 'Write' && input?.file_path) {
+          parts.push(`📝 Writing ${input.file_path}`);
+        } else if (name === 'Read' && input?.file_path) {
+          parts.push(`📖 Reading ${input.file_path}`);
+        } else if (name === 'Edit' && input?.file_path) {
+          parts.push(`✏️  Editing ${input.file_path}`);
+        } else if (name === 'Bash' && input?.command) {
+          const cmd = String(input.command).slice(0, 80);
+          parts.push(`💻 Running: ${cmd}`);
+        } else {
+          parts.push(`🔧 Using ${name}`);
+        }
+      }
+    }
+    return parts.length > 0 ? parts.join('\n') : null;
+  }
+
+  if (type === 'result') {
+    const result = parsed.result as string | undefined;
+    if (result) return result;
+    if (parsed.subtype === 'success') return '✅ Skill completed successfully';
+    if (parsed.subtype === 'error') {
+      const error = parsed.error as string | undefined;
+      return `❌ Error: ${error || 'unknown error'}`;
+    }
+  }
+
+  return null;
+}
+
 export class ClaudeProvider implements Provider {
   readonly name = 'claude';
   readonly runnerScript = 'ralph-cc.sh';
+
+  describeLoop(config: ProviderConfig, modelVariant: string | undefined, projectPath: string): RunSpec {
+    const scriptPath = path.join(projectPath, 'scripts', 'ralph', this.runnerScript);
+    return {
+      kind: 'loop',
+      command: 'bash',
+      args: [scriptPath, ...this.getCliArgs(config, modelVariant)],
+      cwd: projectPath,
+      env: compactEnv(this.buildRunEnv(config, modelVariant)),
+    };
+  }
+
+  describeSkill(
+    config: ProviderConfig,
+    modelVariant: string | undefined,
+    projectPath: string,
+    skill: SkillName,
+    prompt: string,
+  ): RunSpec {
+    const skillContent = readSkillFile(this.name, skillFilePath(projectPath, skill));
+    return {
+      kind: 'skill',
+      skillName: skill,
+      command: 'claude',
+      args: [
+        '-p', prompt,
+        '--append-system-prompt', skillContent,
+        '--dangerously-skip-permissions',
+        '--output-format', 'stream-json',
+        '--verbose',
+        ...this.getCliArgs(config, modelVariant),
+      ],
+      cwd: projectPath,
+      env: compactEnv(this.buildRunEnv(config, modelVariant)),
+      parseLine: parseStreamJsonLine,
+    };
+  }
+
+  syncManifest(): FileSyncEntry[] {
+    const root = getRalphPath(this.name);
+    return [
+      ...SKILLS_TO_SYNC.map((skill) => ({
+        sourcePath: path.join(root, 'skills', skill, 'SKILL.md'),
+        destRelative: path.join('.claude', 'skills', skill, 'SKILL.md'),
+      })),
+      {
+        sourcePath: path.join(root, 'scripts', 'ralph', 'ralph-cc.sh'),
+        destRelative: path.join('scripts', 'ralph', 'ralph-cc.sh'),
+        executable: true,
+      },
+      {
+        sourcePath: path.join(root, 'scripts', 'ralph', 'CLAUDE.md'),
+        destRelative: path.join('scripts', 'ralph', 'CLAUDE.md'),
+      },
+    ];
+  }
+
+  private buildRunEnv(config: ProviderConfig, modelVariant?: string): Record<string, string | undefined> {
+    return cloneRunEnv(this.getEnvVars(config, modelVariant));
+  }
 
   getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};

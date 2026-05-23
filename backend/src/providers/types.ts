@@ -1,3 +1,6 @@
+import type { RunSpec } from '../services/processRun.js';
+import type { SkillName } from '../services/skills/types.js';
+
 /**
  * Configuration retrieved from DB settings for provider env/arg injection.
  */
@@ -10,6 +13,15 @@ export interface ProviderConfig {
   envVarName?: string;
 }
 
+export interface FileSyncEntry {
+  /** Absolute source path resolved from the Ralph installation. */
+  sourcePath: string;
+  /** Destination path relative to the project root. */
+  destRelative: string;
+  /** Whether the destination file should be marked executable. */
+  executable?: boolean;
+}
+
 /**
  * Abstraction over AI providers so services can interact with any provider
  * through a consistent interface.
@@ -20,6 +32,18 @@ export interface Provider {
 
   /** Path to the runner script for this provider (relative to project scripts/ralph/). */
   readonly runnerScript: string;
+
+  describeLoop(config: ProviderConfig, modelVariant: string | undefined, projectPath: string): RunSpec;
+
+  describeSkill(
+    config: ProviderConfig,
+    modelVariant: string | undefined,
+    projectPath: string,
+    skill: SkillName,
+    prompt: string,
+  ): RunSpec;
+
+  syncManifest(): FileSyncEntry[];
 
   /**
    * Build environment variables to inject when spawning a process.
