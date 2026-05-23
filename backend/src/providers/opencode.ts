@@ -1,16 +1,19 @@
 import path from 'path';
 import type { Provider, ProviderConfig, FileSyncEntry } from './types.js';
 import { ProviderError } from './providerError.js';
-import { cloneRunEnv, compactEnv, getRalphPath } from './helpers.js';
+import { cloneRunEnv, compactEnv, ensureExecutableFile } from './helpers.js';
 import type { RunSpec } from '../services/processRun.js';
 import type { SkillName } from '../services/skills/types.js';
 
+const RUNNER_SCRIPT = 'ralph-opencode.sh';
+
 export class OpenCodeProvider implements Provider {
   readonly name = 'opencode';
-  readonly runnerScript = 'ralph-opencode.sh';
 
   describeLoop(config: ProviderConfig, modelVariant: string | undefined, projectPath: string): RunSpec {
-    const scriptPath = path.join(projectPath, 'scripts', 'ralph', this.runnerScript);
+    this.ensureConfigured(config);
+    const scriptPath = path.join(projectPath, 'scripts', 'ralph', RUNNER_SCRIPT);
+    ensureExecutableFile(this.name, scriptPath, 'Script');
     return {
       kind: 'loop',
       command: 'bash',
@@ -30,16 +33,15 @@ export class OpenCodeProvider implements Provider {
     throw new ProviderError('not-configured', 'opencode', 'Skill runs are not supported for opencode');
   }
 
-  syncManifest(): FileSyncEntry[] {
-    const root = getRalphPath(this.name);
+  syncManifest(ralphPath: string): FileSyncEntry[] {
     return [
       {
-        sourcePath: path.join(root, 'scripts', 'ralph', 'ralph-opencode.sh'),
+        sourcePath: path.join(ralphPath, 'scripts', 'ralph', 'ralph-opencode.sh'),
         destRelative: path.join('scripts', 'ralph', 'ralph-opencode.sh'),
         executable: true,
       },
       {
-        sourcePath: path.join(root, 'scripts', 'ralph', 'OPENCODE.md'),
+        sourcePath: path.join(ralphPath, 'scripts', 'ralph', 'OPENCODE.md'),
         destRelative: 'OPENCODE.md',
       },
     ];
@@ -54,7 +56,17 @@ export class OpenCodeProvider implements Provider {
     return env;
   }
 
-  getEnvVars(config: ProviderConfig, _modelVariant?: string): Record<string, string> {
+  private ensureConfigured(config: ProviderConfig): void {
+    if (!config.token || !config.envVarName) {
+      throw new ProviderError(
+        'not-configured',
+        this.name,
+        "Provider 'opencode' is not configured. Please configure authentication on the Models page first.",
+      );
+    }
+  }
+
+  private getEnvVars(config: ProviderConfig, _modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};
 
     // Inject token using the user-specified envVarName (e.g., OPENAI_API_KEY)
@@ -65,7 +77,7 @@ export class OpenCodeProvider implements Provider {
     return env;
   }
 
-  getCliArgs(_config: ProviderConfig, _modelVariant?: string): string[] {
+  private getCliArgs(_config: ProviderConfig, _modelVariant?: string): string[] {
     return ['--yolo'];
   }
 
@@ -95,7 +107,4 @@ export class OpenCodeProvider implements Provider {
     };
   }
 
-  getFilesToSync(ralphPath: string): { source: string; dest: string }[] {
-    return [{ source: path.join(ralphPath, 'scripts', 'ralph', 'ralph-opencode.sh'), dest: 'scripts/ralph/ralph-opencode.sh' }];
-  }
 }

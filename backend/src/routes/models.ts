@@ -34,7 +34,7 @@ function buildVirtualProviderRow(providerName: string): {
   return {
     id: 0,
     name: provider.name,
-    runner_script: provider.runnerScript,
+    runner_script: null,
     is_configured: false,
     config,
   };
@@ -56,9 +56,8 @@ function ensureProviderRow(providerName: string): ProviderRow | undefined {
   if (existing) return existing;
 
   // Create lazily on first configuration attempt
-  const provider = getProvider(providerName);
   db.prepare('INSERT INTO providers (name, runner_script, is_configured, config) VALUES (?, ?, 0, ?)')
-    .run(providerName, provider.runnerScript, '{}');
+    .run(providerName, null, '{}');
 
   return getProviderRow(providerName)!;
 }

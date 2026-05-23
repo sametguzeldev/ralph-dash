@@ -2,6 +2,7 @@ import type { Provider, ProviderConfig } from './types.js';
 import { ClaudeProvider } from './claude.js';
 import { CodexProvider } from './codex.js';
 import { OpenCodeProvider } from './opencode.js';
+import { ProviderError } from './providerError.js';
 import { db } from '../db/connection.js';
 
 export const DEFAULT_PROVIDER = 'claude';
@@ -30,10 +31,40 @@ export function getProvider(name: string): Provider {
 }
 
 /**
+ * Resolve a provider by name, throwing a ProviderError so route handlers can
+ * surface a structured `invalid-config` response when the project references
+ * a provider that isn't registered.
+ */
+export function requireProvider(name: string): Provider {
+  try {
+    return getProvider(name);
+  } catch {
+    throw new ProviderError('invalid-config', name, `Unknown provider: ${name}`);
+  }
+}
+
+/**
  * Return all registered providers.
  */
 export function getAllProviders(): Provider[] {
   return Array.from(providers.values());
+}
+
+/**
+ * Read git identity from settings so spawned provider runs commit under the
+ * user's configured author/committer rather than the container default.
+ * Returns an empty object when either setting is missing.
+ */
+export function loadGitIdentity(): Record<string, string> {
+  const name = (db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserName') as { value: string } | undefined)?.value;
+  const email = (db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserEmail') as { value: string } | undefined)?.value;
+  if (!name || !email) return {};
+  return {
+    GIT_AUTHOR_NAME: name,
+    GIT_AUTHOR_EMAIL: email,
+    GIT_COMMITTER_NAME: name,
+    GIT_COMMITTER_EMAIL: email,
+  };
 }
 
 /**
@@ -51,43 +82,4 @@ export function loadProviderConfig(providerName: string): ProviderConfig {
   } catch {
     return provider.parseConfig({});
   }
-}
-
-/**
- * Build environment variables for spawning a provider-backed process.
- * Clones process.env, strips CLAUDECODE, injects provider env vars and git identity.
- * @param providerName  Provider name (e.g., 'claude', 'codex')
- * @param modelVariant  Optional model variant override
- * @param providerConfig  Optional pre-loaded provider config (avoids redundant DB query)
- */
-export function buildRunEnv(
-  providerName: string,
-  modelVariant?: string,
-  providerConfig?: ProviderConfig
-): Record<string, string | undefined> {
-  const provider = getProvider(providerName);
-  const config = providerConfig ?? loadProviderConfig(providerName);
-
-  const env = { ...process.env };
-  delete env.CLAUDECODE;
-
-  // Inject provider env vars (auth token, model, etc.) — skip vars already set
-  const providerEnv = provider.getEnvVars(config, modelVariant);
-  for (const [key, value] of Object.entries(providerEnv)) {
-    if (!env[key]) {
-      env[key] = value;
-    }
-  }
-
-  // Inject git identity from DB if not already set
-  const nameRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserName') as { value: string } | undefined;
-  const emailRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gitUserEmail') as { value: string } | undefined;
-  if (nameRow?.value && emailRow?.value) {
-    if (!env.GIT_AUTHOR_NAME) env.GIT_AUTHOR_NAME = nameRow.value;
-    if (!env.GIT_AUTHOR_EMAIL) env.GIT_AUTHOR_EMAIL = emailRow.value;
-    if (!env.GIT_COMMITTER_NAME) env.GIT_COMMITTER_NAME = nameRow.value;
-    if (!env.GIT_COMMITTER_EMAIL) env.GIT_COMMITTER_EMAIL = emailRow.value;
-  }
-
-  return env;
 }

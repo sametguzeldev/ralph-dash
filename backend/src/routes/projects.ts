@@ -5,7 +5,7 @@ import path from 'path';
 import { db } from '../db/connection.js';
 import { copyRalphFiles } from '../services/fileCopier.js';
 import { parsePrd, parseProgress, readBranch, deriveTaskStatus, listArchives, parsePrdFromDir, parseProgressFromDir, getArchiveDir } from '../services/fileParser.js';
-import { getRunStatus, stopRun } from '../services/processManager.js';
+import * as ProcessRun from '../services/processRun.js';
 import { detectWorkflowStep } from '../services/workflowDetector.js';
 import { DEFAULT_PROVIDER, getProvider } from '../providers/registry.js';
 import type { ProjectRow } from '../db/types.js';
@@ -18,7 +18,7 @@ projectsRouter.get('/', (_req, res) => {
   const enriched = projects.map(p => {
     const prd = parsePrd(p.path);
     const branch = readBranch(p.path);
-    const runStatus = getRunStatus(p.id);
+    const runStatus = ProcessRun.status(p.id, 'loop');
     const totalStories = prd?.userStories?.length || 0;
     const doneStories = prd?.userStories?.filter(s => s.passes).length || 0;
     const inProgressStories = prd?.userStories?.filter(s => s.inProgress && !s.passes).length || 0;
@@ -87,9 +87,9 @@ projectsRouter.delete('/:id', (req, res) => {
   }
 
   // Stop any active run before deleting
-  const runStatus = getRunStatus(projectId);
+  const runStatus = ProcessRun.status(projectId, 'loop');
   if (runStatus.running) {
-    stopRun(projectId);
+    ProcessRun.stop(projectId, 'loop');
   }
 
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
@@ -141,7 +141,7 @@ projectsRouter.get('/:id/status', (req, res) => {
   const prd = parsePrd(project.path);
   const progress = parseProgress(project.path);
   const branch = readBranch(project.path);
-  const runStatus = getRunStatus(project.id);
+  const runStatus = ProcessRun.status(project.id, 'loop');
   const workflowStatus = detectWorkflowStep(project.path);
 
   // Derive task statuses

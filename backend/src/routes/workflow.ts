@@ -3,9 +3,12 @@ import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
 import { ProviderError } from '../providers/providerError.js';
+import { loadGitIdentity, loadProviderConfig, requireProvider } from '../providers/registry.js';
 import { detectWorkflowStep, validatePrdJson } from '../services/workflowDetector.js';
-import { startSkill, stopSkill, getSkillStatus, getSkillOutput } from '../services/skillRunner.js';
+import * as ProcessRun from '../services/processRun.js';
+import { getSkill } from '../services/skills/registry.js';
 import type { ProjectRow } from '../db/types.js';
+import type { SkillName } from '../services/skills/types.js';
 
 export const workflowRouter = Router();
 
@@ -28,6 +31,23 @@ function resolveAndValidate(projectPath: string, relativePath: string): string |
 
 function getProject(id: string): ProjectRow | undefined {
   return db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+}
+
+function getSkillStatus(projectId: number): {
+  running: boolean;
+  skill: SkillName | null;
+  status: 'running' | 'completed' | 'failed' | null;
+  startedAt?: string;
+  exitCode: number | null;
+} {
+  const status = ProcessRun.status(projectId, 'skill');
+  return {
+    running: status.running,
+    skill: status.skillName ?? null,
+    status: status.status ?? null,
+    startedAt: status.startedAt,
+    exitCode: status.exitCode ?? null,
+  };
 }
 
 // GET /:id/workflow/status
@@ -170,11 +190,26 @@ workflowRouter.post('/:id/workflow/skill/start', (req, res) => {
   const { skill, featureDescription, questionsFile, prdFile } = req.body;
 
   try {
-    const started = startSkill(project.id, project.path, skill, {
+    if (!project.provider) {
+      throw new ProviderError('not-configured', 'project', 'Project has no provider assigned. Configure a provider first.');
+    }
+
+    const skillDefinition = getSkill(skill);
+    const prompt = skillDefinition.buildPrompt({
       featureDescription,
       questionsFile,
       prdFile,
-    }, project.provider ?? undefined, project.model_variant ?? undefined);
+    });
+    const provider = requireProvider(project.provider);
+    const cfg = loadProviderConfig(project.provider);
+    const spec = provider.describeSkill(
+      cfg,
+      project.model_variant ?? undefined,
+      project.path,
+      skillDefinition.name,
+      prompt,
+    );
+    const started = ProcessRun.start(project.id, { ...spec, env: { ...loadGitIdentity(), ...spec.env } });
 
     if (!started.ok) {
       return res.status(409).json({
@@ -189,7 +224,7 @@ workflowRouter.post('/:id/workflow/skill/start', (req, res) => {
     if (err instanceof ProviderError) {
       return res.status(400).json({ error: message, kind: err.kind });
     }
-    return res.status(400).json({ error: message });
+    return res.status(500).json({ error: message });
   }
 });
 
@@ -198,7 +233,7 @@ workflowRouter.post('/:id/workflow/skill/stop', (req, res) => {
   const project = getProject(req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const stopped = stopSkill(project.id);
+  const stopped = ProcessRun.stop(project.id, 'skill');
   if (!stopped) {
     return res.status(404).json({ error: 'No running skill found' });
   }
@@ -220,7 +255,7 @@ workflowRouter.get('/:id/workflow/skill/output', (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const since = parseInt(req.query.since as string, 10) || 0;
-  res.json(getSkillOutput(project.id, since));
+  res.json(ProcessRun.output(project.id, since, 'skill'));
 });
 
 // POST /:id/workflow/prd-json/validate

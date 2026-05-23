@@ -1,11 +1,12 @@
 import path from 'path';
 import type { Provider, ProviderConfig, FileSyncEntry } from './types.js';
-import { cloneRunEnv, compactEnv, getRalphPath, readSkillFile } from './helpers.js';
+import { cloneRunEnv, compactEnv, ensureExecutableFile, readSkillFile } from './helpers.js';
+import { ProviderError } from './providerError.js';
 import type { RunSpec } from '../services/processRun.js';
 import type { SkillName } from '../services/skills/types.js';
 
 const SKILLS_TO_SYNC = ['prd', 'prd-questions', 'ralph'];
-const SCRIPTS_TO_SYNC = ['ralph-cc.sh', 'CLAUDE.md'];
+const RUNNER_SCRIPT = 'ralph-cc.sh';
 
 const MODEL_VARIANTS = [
   'claude-opus-4-7',
@@ -80,10 +81,11 @@ export function parseStreamJsonLine(raw: string): string | null {
 
 export class ClaudeProvider implements Provider {
   readonly name = 'claude';
-  readonly runnerScript = 'ralph-cc.sh';
 
   describeLoop(config: ProviderConfig, modelVariant: string | undefined, projectPath: string): RunSpec {
-    const scriptPath = path.join(projectPath, 'scripts', 'ralph', this.runnerScript);
+    this.ensureConfigured(config);
+    const scriptPath = path.join(projectPath, 'scripts', 'ralph', RUNNER_SCRIPT);
+    ensureExecutableFile(this.name, scriptPath, 'Script');
     return {
       kind: 'loop',
       command: 'bash',
@@ -100,6 +102,7 @@ export class ClaudeProvider implements Provider {
     skill: SkillName,
     prompt: string,
   ): RunSpec {
+    this.ensureConfigured(config);
     const skillContent = readSkillFile(this.name, skillFilePath(projectPath, skill));
     return {
       kind: 'skill',
@@ -119,20 +122,19 @@ export class ClaudeProvider implements Provider {
     };
   }
 
-  syncManifest(): FileSyncEntry[] {
-    const root = getRalphPath(this.name);
+  syncManifest(ralphPath: string): FileSyncEntry[] {
     return [
       ...SKILLS_TO_SYNC.map((skill) => ({
-        sourcePath: path.join(root, 'skills', skill, 'SKILL.md'),
+        sourcePath: path.join(ralphPath, 'skills', skill, 'SKILL.md'),
         destRelative: path.join('.claude', 'skills', skill, 'SKILL.md'),
       })),
       {
-        sourcePath: path.join(root, 'scripts', 'ralph', 'ralph-cc.sh'),
+        sourcePath: path.join(ralphPath, 'scripts', 'ralph', 'ralph-cc.sh'),
         destRelative: path.join('scripts', 'ralph', 'ralph-cc.sh'),
         executable: true,
       },
       {
-        sourcePath: path.join(root, 'scripts', 'ralph', 'CLAUDE.md'),
+        sourcePath: path.join(ralphPath, 'scripts', 'ralph', 'CLAUDE.md'),
         destRelative: path.join('scripts', 'ralph', 'CLAUDE.md'),
       },
     ];
@@ -142,7 +144,17 @@ export class ClaudeProvider implements Provider {
     return cloneRunEnv(this.getEnvVars(config, modelVariant));
   }
 
-  getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
+  private ensureConfigured(config: ProviderConfig): void {
+    if (!config.token || !config.tokenType) {
+      throw new ProviderError(
+        'not-configured',
+        this.name,
+        "Provider 'claude' is not configured. Please configure authentication on the Models page first.",
+      );
+    }
+  }
+
+  private getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};
 
     // Auth token
@@ -168,7 +180,7 @@ export class ClaudeProvider implements Provider {
     return env;
   }
 
-  getCliArgs(config: ProviderConfig, modelVariant?: string): string[] {
+  private getCliArgs(config: ProviderConfig, modelVariant?: string): string[] {
     const args: string[] = [];
     const model = modelVariant ?? config.model;
     if (model) {
@@ -212,23 +224,4 @@ export class ClaudeProvider implements Provider {
     };
   }
 
-  getFilesToSync(ralphPath: string): { source: string; dest: string }[] {
-    const files: { source: string; dest: string }[] = [];
-
-    for (const skill of SKILLS_TO_SYNC) {
-      files.push({
-        source: path.join(ralphPath, 'skills', skill, 'SKILL.md'),
-        dest: path.join('.claude', 'skills', skill, 'SKILL.md'),
-      });
-    }
-
-    for (const file of SCRIPTS_TO_SYNC) {
-      files.push({
-        source: path.join(ralphPath, 'scripts', 'ralph', file),
-        dest: path.join('scripts', 'ralph', file),
-      });
-    }
-
-    return files;
-  }
 }
