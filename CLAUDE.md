@@ -114,3 +114,17 @@ All routes mounted under `/api/`. Key endpoint groups:
 - **Path validation**: Workflow editor allowlists `tasks/` directory and `scripts/ralph/prd.json`; uses `path.resolve()` to prevent traversal
 - **Naming**: API routes kebab-case, DB columns snake_case, React components PascalCase, hooks `use*` camelCase
 - **Styling**: Dark theme (bg-gray-900, text-gray-300), ralph purple for primary actions (`bg-ralph-600 hover:bg-ralph-700`)
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues at `sametguzeldev/ralph-dash`, accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
