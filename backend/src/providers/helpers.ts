@@ -38,7 +38,7 @@ export function cloneRunEnv(extras: Record<string, string>): Record<string, stri
   const env = { ...process.env };
   delete env.CLAUDECODE;
   for (const [key, value] of Object.entries(extras)) {
-    if (!env[key]) env[key] = value;
+    if (env[key] === undefined) env[key] = value;
   }
 
   return env;

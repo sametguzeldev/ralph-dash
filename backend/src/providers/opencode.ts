@@ -30,7 +30,7 @@ export class OpenCodeProvider implements Provider {
     _skill: SkillName,
     _prompt: string,
   ): RunSpec {
-    throw new ProviderError('not-configured', 'opencode', 'Skill runs are not supported for opencode');
+    throw new ProviderError('unsupported', 'opencode', 'Skill runs are not supported for opencode');
   }
 
   syncManifest(ralphPath: string): FileSyncEntry[] {

@@ -1,4 +1,4 @@
-export type ProviderErrorKind = 'not-configured' | 'artifact-missing' | 'invalid-config';
+export type ProviderErrorKind = 'not-configured' | 'artifact-missing' | 'invalid-config' | 'unsupported';
 
 export class ProviderError extends Error {
   constructor(
