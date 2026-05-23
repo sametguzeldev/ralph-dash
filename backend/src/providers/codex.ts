@@ -45,9 +45,9 @@ export class CodexProvider implements Provider {
       command: 'codex',
       args: [
         'exec',
-        '--sandbox', 'workspace-write',
-        '--ask-for-approval', 'never',
+        '--sandbox', 'danger-full-access',
         ...(model ? ['--model', model] : []),
+        '--',
         `${skillContent}\n\n${prompt}`,
       ],
       cwd: projectPath,

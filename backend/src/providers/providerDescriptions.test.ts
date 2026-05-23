@@ -344,11 +344,10 @@ describe('provider descriptions', () => {
             "args": [
               "exec",
               "--sandbox",
-              "workspace-write",
-              "--ask-for-approval",
-              "never",
+              "danger-full-access",
               "--model",
               "variant-model",
+              "--",
               "Codex skill content for prd-questions
 
         Skill prompt",
@@ -368,11 +367,10 @@ describe('provider descriptions', () => {
             "args": [
               "exec",
               "--sandbox",
-              "workspace-write",
-              "--ask-for-approval",
-              "never",
+              "danger-full-access",
               "--model",
               "variant-model",
+              "--",
               "Codex skill content for prd
 
         Skill prompt",
@@ -392,11 +390,10 @@ describe('provider descriptions', () => {
             "args": [
               "exec",
               "--sandbox",
-              "workspace-write",
-              "--ask-for-approval",
-              "never",
+              "danger-full-access",
               "--model",
               "variant-model",
+              "--",
               "Codex skill content for ralph
 
         Skill prompt",
