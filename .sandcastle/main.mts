@@ -261,6 +261,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
       promptFile: "./.sandcastle/merge-prompt.md",
       promptArgs: {
         INTEGRATION_BRANCH: integrationBranch,
+        PRD_ID: prd.id,
         // Tab-separated rows so the merger has id, title, and branch together
         // without having to cross-reference two lists.
         BRANCH_ROWS: completedIssues

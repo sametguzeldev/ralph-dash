@@ -30,6 +30,16 @@ The issues above should all belong to the same parent PRD. Identify it (from iss
 
 If issues belong to different PRDs, pick the PRD with the most unblocked issues and only include issues from that PRD in the output.
 
+# PRD ISSUES ARE NOT WORK
+
+A PRD issue is **meta** — it describes the work, it is not itself work. Never include the PRD issue in the `issues` array of your output. You can recognize a PRD issue by any of:
+
+- Its title starts with `PRD:` or `PRD <letter>` (e.g. `PRD A — …`)
+- Other open issues reference it as `Parent: #<id>` in their body
+- It has a `prd` label
+
+If after filtering out the PRD itself there are no unblocked child issues left, output an empty `issues` array — the orchestrator will detect this and exit cleanly.
+
 # OUTPUT
 
 Output your plan as a JSON object wrapped in `<plan>` tags:

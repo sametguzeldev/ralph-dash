@@ -26,4 +26,20 @@ After each successful squash commit, close the corresponding issue with `gh issu
 
 (The `Closes #<id>` trailer is still useful as a fallback — if the issue is somehow still open when the PR merges to main, GitHub closes it then. But the trailer alone is not enough; close in-loop too.)
 
+# CLOSE THE PARENT PRD WHEN ITS LAST CHILD CLOSES
+
+The parent PRD for this batch is `#{{PRD_ID}}`. After closing all child issues above, check whether `#{{PRD_ID}}` has any *other* open child issues remaining:
+
+```
+gh issue list --state open --search "Parent: #{{PRD_ID}} in:body" --json number,title
+```
+
+If that command returns an empty array, the PRD is fully delivered — close it with:
+
+```
+gh issue close {{PRD_ID}} --comment "All child issues squashed onto \`{{INTEGRATION_BRANCH}}\`. PRD complete."
+```
+
+If it returns one or more open children, leave `#{{PRD_ID}}` open.
+
 Once you've merged everything you can, output <promise>COMPLETE</promise>.
