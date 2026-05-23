@@ -500,7 +500,7 @@ describe('provider descriptions', () => {
         provider.describeSkill(makeConfig(), 'variant-model', projectPath, skill, 'Skill prompt');
       } catch (error) {
         expect(error).toMatchObject({
-          kind: 'not-configured',
+          kind: 'unsupported',
           providerName: 'opencode',
         });
       }

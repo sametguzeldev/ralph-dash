@@ -18,7 +18,8 @@ projectsRouter.get('/', (_req, res) => {
   const enriched = projects.map(p => {
     const prd = parsePrd(p.path);
     const branch = readBranch(p.path);
-    const runStatus = ProcessRun.status(p.id, 'loop');
+    const loopStatus = ProcessRun.status(p.id, 'loop');
+    const skillStatus = ProcessRun.status(p.id, 'skill');
     const totalStories = prd?.userStories?.length || 0;
     const doneStories = prd?.userStories?.filter(s => s.passes).length || 0;
     const inProgressStories = prd?.userStories?.filter(s => s.inProgress && !s.passes).length || 0;
@@ -29,7 +30,7 @@ projectsRouter.get('/', (_req, res) => {
       totalStories,
       doneStories,
       inProgressStories,
-      running: runStatus.running,
+      running: loopStatus.running || skillStatus.running,
     };
   });
 
@@ -86,10 +87,11 @@ projectsRouter.delete('/:id', (req, res) => {
     return res.status(404).json({ error: 'Project not found' });
   }
 
-  // Stop any active run before deleting
-  const runStatus = ProcessRun.status(projectId, 'loop');
-  if (runStatus.running) {
-    ProcessRun.stop(projectId, 'loop');
+  // Stop any active runs before deleting
+  for (const kind of ['loop', 'skill'] as const) {
+    if (ProcessRun.status(projectId, kind).running) {
+      ProcessRun.stop(projectId, kind);
+    }
   }
 
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
@@ -141,7 +143,9 @@ projectsRouter.get('/:id/status', (req, res) => {
   const prd = parsePrd(project.path);
   const progress = parseProgress(project.path);
   const branch = readBranch(project.path);
-  const runStatus = ProcessRun.status(project.id, 'loop');
+  const loopStatus = ProcessRun.status(project.id, 'loop');
+  const skillStatus = ProcessRun.status(project.id, 'skill');
+  const isRunning = loopStatus.running || skillStatus.running;
   const workflowStatus = detectWorkflowStep(project.path);
 
   // Derive task statuses
@@ -155,7 +159,7 @@ projectsRouter.get('/:id/status', (req, res) => {
     prd: prd ? { ...prd, userStories: tasks } : null,
     progress,
     branch,
-    runStatus: runStatus.running ? 'running' : 'stopped',
+    runStatus: isRunning ? 'running' : 'stopped',
     workflowStep: workflowStatus.step,
     workflowFiles: {
       questions: workflowStatus.questionsFiles,
