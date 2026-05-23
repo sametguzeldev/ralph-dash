@@ -2,8 +2,9 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
+import { ProviderError } from '../providers/providerError.js';
 import { detectWorkflowStep, validatePrdJson } from '../services/workflowDetector.js';
-import { startSkill, stopSkill, clearSkillRun, getSkillStatus, getSkillOutput, type SkillName } from '../services/skillRunner.js';
+import { startSkill, stopSkill, getSkillStatus, getSkillOutput } from '../services/skillRunner.js';
 import type { ProjectRow } from '../db/types.js';
 
 export const workflowRouter = Router();
@@ -167,31 +168,29 @@ workflowRouter.post('/:id/workflow/skill/start', (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const { skill, featureDescription, questionsFile, prdFile } = req.body;
-  const validSkills: SkillName[] = ['prd-questions', 'prd', 'ralph'];
-  if (!validSkills.includes(skill)) {
-    return res.status(400).json({ error: `Invalid skill. Must be one of: ${validSkills.join(', ')}` });
-  }
 
-  // Clear any completed skill run before starting a new one
-  clearSkillRun(project.id);
-
-  let started: boolean;
   try {
-    started = startSkill(project.id, project.path, skill, {
+    const started = startSkill(project.id, project.path, skill, {
       featureDescription,
       questionsFile,
       prdFile,
     }, project.provider ?? undefined, project.model_variant ?? undefined);
+
+    if (!started.ok) {
+      return res.status(409).json({
+        error: `A ${started.conflictKind} is already running for this project`,
+        conflictKind: started.conflictKind,
+      });
+    }
+
+    return res.json({ success: true, ...getSkillStatus(project.id) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to start skill';
+    if (err instanceof ProviderError) {
+      return res.status(400).json({ error: message, kind: err.kind });
+    }
     return res.status(400).json({ error: message });
   }
-
-  if (!started) {
-    return res.status(409).json({ error: 'A skill is already running for this project' });
-  }
-
-  res.json({ success: true, ...getSkillStatus(project.id) });
 });
 
 // POST /:id/workflow/skill/stop
