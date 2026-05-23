@@ -83,28 +83,25 @@ function expectMissingSkill(fn: () => unknown, providerName: string): void {
 describe('provider descriptions', () => {
   let projectPath: string;
   let ralphPath: string;
-  let previousRalphPath: string | undefined;
   let previousEnv: Record<string, string | undefined>;
 
   beforeEach(() => {
     projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-project-'));
     ralphPath = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-ralph-'));
-    previousRalphPath = process.env.RALPH_PATH;
     previousEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
     for (const key of ENV_KEYS) {
       delete process.env[key];
     }
-    process.env.RALPH_PATH = ralphPath;
+    for (const script of ['ralph-cc.sh', 'ralph-codex.sh', 'ralph-opencode.sh']) {
+      const scriptPath = path.join(projectPath, 'scripts', 'ralph', script);
+      fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+      fs.writeFileSync(scriptPath, '#!/usr/bin/env bash\n');
+    }
   });
 
   afterEach(() => {
     fs.rmSync(projectPath, { recursive: true, force: true });
     fs.rmSync(ralphPath, { recursive: true, force: true });
-    if (previousRalphPath === undefined) {
-      delete process.env.RALPH_PATH;
-    } else {
-      process.env.RALPH_PATH = previousRalphPath;
-    }
     for (const key of ENV_KEYS) {
       if (previousEnv[key] === undefined) {
         delete process.env[key];
@@ -140,7 +137,7 @@ describe('provider descriptions', () => {
         }
       `);
 
-      expect(stableSpec(provider.describeLoop(makeConfig({ token: undefined, tokenType: undefined, autoMemoryEnabled: false }), undefined, projectPath), [
+      expect(stableSpec(provider.describeLoop(makeConfig({ autoMemoryEnabled: false }), undefined, projectPath), [
         'ANTHROPIC_API_KEY',
         'ANTHROPIC_MODEL',
         'CLAUDE_CODE_DISABLE_AUTO_MEMORY',
@@ -154,6 +151,7 @@ describe('provider descriptions', () => {
           "command": "bash",
           "cwd": "<project>",
           "env": {
+            "ANTHROPIC_API_KEY": "test-token",
             "ANTHROPIC_MODEL": "db-model",
             "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
           },
@@ -161,6 +159,9 @@ describe('provider descriptions', () => {
           "parseLine": undefined,
         }
       `);
+
+      expect(() => provider.describeLoop(makeConfig({ token: undefined, tokenType: undefined }), undefined, projectPath))
+        .toThrow(ProviderError);
     });
 
     it('describes skill runs for every skill and rejects missing files', () => {
@@ -263,7 +264,7 @@ describe('provider descriptions', () => {
     });
 
     it('describes its sync manifest', () => {
-      expect(normalizePaths(provider.syncManifest(), { [ralphPath]: '<ralph>' })).toMatchInlineSnapshot(`
+      expect(normalizePaths(provider.syncManifest(ralphPath), { [ralphPath]: '<ralph>' })).toMatchInlineSnapshot(`
         [
           {
             "destRelative": ".claude/skills/prd/SKILL.md",
@@ -424,7 +425,7 @@ describe('provider descriptions', () => {
     });
 
     it('describes its sync manifest', () => {
-      expect(normalizePaths(provider.syncManifest(), { [ralphPath]: '<ralph>' })).toMatchInlineSnapshot(`
+      expect(normalizePaths(provider.syncManifest(ralphPath), { [ralphPath]: '<ralph>' })).toMatchInlineSnapshot(`
         [
           {
             "destRelative": ".agents/skills/prd/SKILL.md",
@@ -472,7 +473,7 @@ describe('provider descriptions', () => {
           "parseLine": undefined,
         }
       `);
-      expect(stableSpec(provider.describeLoop(makeConfig({ token: undefined, envVarName: undefined }), undefined, projectPath), ['OPENAI_API_KEY', 'OPENCODE_MODEL'], { [projectPath]: '<project>' })).toMatchInlineSnapshot(`
+      expect(stableSpec(provider.describeLoop(makeConfig({ envVarName: 'OPENAI_API_KEY' }), undefined, projectPath), ['OPENAI_API_KEY', 'OPENCODE_MODEL'], { [projectPath]: '<project>' })).toMatchInlineSnapshot(`
         {
           "args": [
             "<project>/scripts/ralph/ralph-opencode.sh",
@@ -481,12 +482,16 @@ describe('provider descriptions', () => {
           "command": "bash",
           "cwd": "<project>",
           "env": {
+            "OPENAI_API_KEY": "test-token",
             "OPENCODE_MODEL": "db-model",
           },
           "kind": "loop",
           "parseLine": undefined,
         }
       `);
+
+      expect(() => provider.describeLoop(makeConfig({ token: undefined, envVarName: undefined }), undefined, projectPath))
+        .toThrow(ProviderError);
     });
 
     it.each(SKILLS)('rejects unsupported skill run for %s', (skill) => {
@@ -502,7 +507,7 @@ describe('provider descriptions', () => {
     });
 
     it('describes its sync manifest', () => {
-      expect(normalizePaths(provider.syncManifest(), { [ralphPath]: '<ralph>' })).toMatchInlineSnapshot(`
+      expect(normalizePaths(provider.syncManifest(ralphPath), { [ralphPath]: '<ralph>' })).toMatchInlineSnapshot(`
         [
           {
             "destRelative": "scripts/ralph/ralph-opencode.sh",

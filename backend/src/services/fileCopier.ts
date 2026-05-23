@@ -2,12 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { db } from '../db/connection.js';
 import { getProvider, DEFAULT_PROVIDER } from '../providers/registry.js';
-
-/** Map provider name to the directory where skills are placed in a project. */
-function getSkillsDir(providerName: string): string {
-  if (providerName === 'codex') return '.agents/skills';
-  return '.claude/skills';
-}
+import type { FileSyncEntry } from '../providers/types.js';
 
 /** Validate skill name to prevent path traversal. */
 function isValidSkillName(name: string): boolean {
@@ -26,62 +21,54 @@ function getJsonArraySetting(key: string): string[] {
   }
 }
 
-export function copyRalphFiles(ralphPath: string, projectRoot: string, providerName: string = DEFAULT_PROVIDER) {
-  const selectedSkills = getJsonArraySetting('selectedSkills');
-  const selectedProviders = getJsonArraySetting('selectedProviders');
+/**
+ * Extract the skill name from a sync entry that points at a SKILL.md file.
+ * Returns null if the entry is not a skill file.
+ */
+function skillNameForEntry(entry: FileSyncEntry): string | null {
+  for (const candidate of [entry.sourcePath, entry.destRelative]) {
+    const parts = candidate.split(path.sep);
+    if (parts.at(-1) !== 'SKILL.md') continue;
+    const skillsIndex = parts.lastIndexOf('skills');
+    if (skillsIndex >= 0 && parts[skillsIndex + 1]) {
+      return parts[skillsIndex + 1];
+    }
+  }
+  return null;
+}
 
-  const filesToSync: { source: string; dest: string }[] = [];
+export function copyRalphFiles(ralphPath: string, projectRoot: string, providerName: string = DEFAULT_PROVIDER) {
+  const selectedSkills = getJsonArraySetting('selectedSkills').filter((skill) => {
+    if (isValidSkillName(skill)) return true;
+    console.warn(`Skipping invalid skill name: ${skill}`);
+    return false;
+  });
+  const selectedProviders = new Set(getJsonArraySetting('selectedProviders'));
+  selectedProviders.add(providerName);
+  const selectedSkillSet = new Set(selectedSkills);
+
+  const filesToSync: FileSyncEntry[] = [];
   const seenDests = new Set<string>();
 
-  function addFile(source: string, dest: string) {
-    if (!seenDests.has(dest)) {
-      seenDests.add(dest);
-      filesToSync.push({ source, dest });
-    }
-  }
-
-  // Skills: for each selected provider, add selected skills to that provider's skills directory
   for (const provName of selectedProviders) {
-    const skillsDir = getSkillsDir(provName);
-    for (const skill of selectedSkills) {
-      if (!isValidSkillName(skill)) {
-        console.warn(`Skipping invalid skill name: ${skill}`);
-        continue;
-      }
-      addFile(
-        path.join(ralphPath, 'skills', skill, 'SKILL.md'),
-        path.join(skillsDir, skill, 'SKILL.md'),
-      );
+    const provider = getProvider(provName);
+    for (const entry of provider.syncManifest(ralphPath)) {
+      const skillName = skillNameForEntry(entry);
+      if (skillName && !selectedSkillSet.has(skillName)) continue;
+      if (seenDests.has(entry.destRelative)) continue;
+      seenDests.add(entry.destRelative);
+      filesToSync.push(entry);
     }
   }
 
-  // CLAUDE.md: only when Claude is a selected provider
-  if (selectedProviders.includes('claude')) {
-    addFile(
-      path.join(ralphPath, 'scripts', 'ralph', 'CLAUDE.md'),
-      path.join('scripts', 'ralph', 'CLAUDE.md'),
-    );
-  }
-
-  // Runner script: always for the project's own provider
-  const provider = getProvider(providerName);
-  addFile(
-    path.join(ralphPath, 'scripts', 'ralph', provider.runnerScript),
-    path.join('scripts', 'ralph', provider.runnerScript),
-  );
-
-  // Copy all collected files
   for (const file of filesToSync) {
-    const src = file.source;
-    const dest = path.join(projectRoot, file.dest);
+    const dest = path.join(projectRoot, file.destRelative);
+    if (!fs.existsSync(file.sourcePath)) continue;
 
-    if (fs.existsSync(src)) {
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
-      // Make shell scripts executable
-      if (dest.endsWith('.sh')) {
-        fs.chmodSync(dest, 0o755);
-      }
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(file.sourcePath, dest);
+    if (file.executable) {
+      fs.chmodSync(dest, 0o755);
     }
   }
 }

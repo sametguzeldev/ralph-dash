@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import { ProviderError } from './providerError.js';
 
 export function compactEnv(env: Record<string, string | undefined>): Record<string, string> {
@@ -8,19 +7,27 @@ export function compactEnv(env: Record<string, string | undefined>): Record<stri
   );
 }
 
-export function getRalphPath(providerName: string): string {
-  const configured = process.env.RALPH_PATH;
-  if (!configured) {
-    throw new ProviderError('not-configured', providerName, 'RALPH_PATH is not configured');
-  }
-  return path.resolve(configured);
-}
-
 export function readSkillFile(providerName: string, skillPath: string): string {
   if (!fs.existsSync(skillPath)) {
     throw new ProviderError('artifact-missing', providerName, `Skill file not found: ${skillPath}`);
   }
   return fs.readFileSync(skillPath, 'utf-8');
+}
+
+export function ensureExecutableFile(providerName: string, filePath: string, label: string): void {
+  if (!fs.existsSync(filePath)) {
+    throw new ProviderError('artifact-missing', providerName, `${label} not found: ${filePath}. Try "Sync Files" first.`);
+  }
+
+  try {
+    fs.accessSync(filePath, fs.constants.X_OK);
+  } catch {
+    try {
+      fs.chmodSync(filePath, 0o755);
+    } catch {
+      throw new ProviderError('artifact-missing', providerName, `${label} is not executable and chmod failed: ${filePath}`);
+    }
+  }
 }
 
 /**
@@ -33,5 +40,6 @@ export function cloneRunEnv(extras: Record<string, string>): Record<string, stri
   for (const [key, value] of Object.entries(extras)) {
     if (!env[key]) env[key] = value;
   }
+
   return env;
 }

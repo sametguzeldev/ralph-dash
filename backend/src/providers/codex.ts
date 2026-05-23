@@ -1,11 +1,13 @@
 import path from 'path';
 import type { Provider, ProviderConfig, FileSyncEntry } from './types.js';
-import { cloneRunEnv, compactEnv, getRalphPath, readSkillFile } from './helpers.js';
+import { cloneRunEnv, compactEnv, ensureExecutableFile, readSkillFile } from './helpers.js';
+import { ProviderError } from './providerError.js';
 import type { RunSpec } from '../services/processRun.js';
 import type { SkillName } from '../services/skills/types.js';
 
 const SKILLS_TO_SYNC = ['prd', 'prd-questions', 'ralph'];
 const MODEL_VARIANTS = ['gpt-5.5'];
+const RUNNER_SCRIPT = 'ralph-codex.sh';
 
 function skillFilePath(projectPath: string, skill: SkillName): string {
   return path.join(projectPath, '.agents', 'skills', skill, 'SKILL.md');
@@ -13,10 +15,11 @@ function skillFilePath(projectPath: string, skill: SkillName): string {
 
 export class CodexProvider implements Provider {
   readonly name = 'codex';
-  readonly runnerScript = 'ralph-codex.sh';
 
   describeLoop(config: ProviderConfig, modelVariant: string | undefined, projectPath: string): RunSpec {
-    const scriptPath = path.join(projectPath, 'scripts', 'ralph', this.runnerScript);
+    this.ensureConfigured(config);
+    const scriptPath = path.join(projectPath, 'scripts', 'ralph', RUNNER_SCRIPT);
+    ensureExecutableFile(this.name, scriptPath, 'Script');
     return {
       kind: 'loop',
       command: 'bash',
@@ -33,6 +36,7 @@ export class CodexProvider implements Provider {
     skill: SkillName,
     prompt: string,
   ): RunSpec {
+    this.ensureConfigured(config);
     const skillContent = readSkillFile(this.name, skillFilePath(projectPath, skill));
     const model = modelVariant ?? config.model;
     return {
@@ -51,20 +55,19 @@ export class CodexProvider implements Provider {
     };
   }
 
-  syncManifest(): FileSyncEntry[] {
-    const root = getRalphPath(this.name);
+  syncManifest(ralphPath: string): FileSyncEntry[] {
     return [
       ...SKILLS_TO_SYNC.map((skill) => ({
-        sourcePath: path.join(root, 'skills', skill, 'SKILL.md'),
+        sourcePath: path.join(ralphPath, 'skills', skill, 'SKILL.md'),
         destRelative: path.join('.agents', 'skills', skill, 'SKILL.md'),
       })),
       {
-        sourcePath: path.join(root, 'scripts', 'ralph', 'ralph-codex.sh'),
+        sourcePath: path.join(ralphPath, 'scripts', 'ralph', 'ralph-codex.sh'),
         destRelative: path.join('scripts', 'ralph', 'ralph-codex.sh'),
         executable: true,
       },
       {
-        sourcePath: path.join(root, 'scripts', 'ralph', 'AGENTS.md'),
+        sourcePath: path.join(ralphPath, 'scripts', 'ralph', 'AGENTS.md'),
         destRelative: 'AGENTS.md',
       },
     ];
@@ -74,7 +77,18 @@ export class CodexProvider implements Provider {
     return cloneRunEnv(this.getEnvVars(config, modelVariant));
   }
 
-  getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
+  private ensureConfigured(config: ProviderConfig): void {
+    if (config.tokenType === 'chatgpt') return;
+    if (!config.token) {
+      throw new ProviderError(
+        'not-configured',
+        this.name,
+        "Provider 'codex' is not configured. Please configure authentication on the Models page first.",
+      );
+    }
+  }
+
+  private getEnvVars(config: ProviderConfig, modelVariant?: string): Record<string, string> {
     const env: Record<string, string> = {};
 
     // ChatGPT mode: Codex CLI reads ~/.codex/auth.json natively — no API key injection needed.
@@ -93,7 +107,7 @@ export class CodexProvider implements Provider {
     return env;
   }
 
-  getCliArgs(_config: ProviderConfig, _modelVariant?: string): string[] {
+  private getCliArgs(_config: ProviderConfig, _modelVariant?: string): string[] {
     return [];
   }
 
@@ -128,7 +142,4 @@ export class CodexProvider implements Provider {
     };
   }
 
-  getFilesToSync(ralphPath: string): { source: string; dest: string }[] {
-    return [{ source: path.join(ralphPath, 'scripts', 'ralph', 'ralph-codex.sh'), dest: 'scripts/ralph/ralph-codex.sh' }];
-  }
 }
